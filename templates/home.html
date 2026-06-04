@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="hero">
+    <h2>Market Insights at Your Fingertips</h2>
+    <div class="market-ticker">
+        {% for name, summary in indices.items() %}
+        <div class="ticker-item">
+            <span class="ticker-name">{{ name }}:</span>
+            <span class="ticker-value">{{ summary.value }}</span>
+            <span class="ticker-change {% if summary.change >= 0 %}pos{% else %}neg{% endif %}">
+                {{ summary.change }}%
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="search-section">
+        <form action="/stock_search" method="GET" id="searchForm">
+            <div class="dropdown-wrapper">
+                <select name="symbol" id="stockDropdown" required>
+                    <option value="" disabled selected>Select a Stock or ETF...</option>
+                    {% for stock in stock_list %}
+                    <option value="{{ stock.Symbol }}">{{ stock.Symbol }} - {{ stock.Name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Analyze</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .dropdown-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: stretch;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+
+    #stockDropdown {
+        flex: 1;
+        padding: 12px;
+        border-radius: 6px 0 0 6px;
+        border: 1px solid var(--border-color);
+        background: var(--card-bg);
+        color: var(--text-color);
+        font-size: 1rem;
+        outline: none;
+        cursor: pointer;
+    }
+
+    #stockDropdown:focus {
+        border-color: var(--accent-color);
+    }
+
+    .search-section button {
+        border-radius: 0 6px 6px 0;
+        margin-left: -1px; /* Remove double border gap */
+    }
+</style>
+
+<script>
+    document.getElementById('searchForm').addEventListener('submit', function(e) {
+        // No e.preventDefault() here, let the form submit naturally to /stock_search
+    });
+</script>
+{% endblock %}

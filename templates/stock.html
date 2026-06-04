@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="stock-header">
+    <h2>{{ symbol }} - Analysis Dashboard</h2>
+    <div class="signal-verdict {{ signal.verdict.lower() }}">
+        {{ signal.verdict }}
+    </div>
+</div>
+
+<!-- Price Chart Section -->
+<div class="card chart-card" style="height: 350px; margin-bottom: 20px;">
+    <h3>Price History (3 Months)</h3>
+    <canvas id="priceChart"></canvas>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Prediction Card -->
+    <div class="card">
+        <h3>Price Prediction</h3>
+        <p class="current-price">Current: ₹{{ prediction.current_price }}</p>
+        <p class="predicted-price">Target (Next Day): ₹{{ prediction.predicted_price }}</p>
+        <div class="change-tag {% if prediction.price_change_pct >= 0 %}pos{% else %}neg{% endif %}">
+            {{ prediction.price_change_pct }}%
+        </div>
+        <p class="prob">Directional Probability (5-day): {{ (prediction.trend_prob_up * 100)|round(1) }}%</p>
+    </div>
+
+    <!-- Sentiment Card -->
+    <div class="card">
+        <h3>Sentiment Score</h3>
+        <div class="sentiment-bar-container">
+            <p>News: <span class="{% if sentiment.news >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.news * 100)|round(1) }}%</span></p>
+            <div class="sentiment-bar">
+                <div class="fill" style="width: {{ (sentiment.news + 1) * 50 }}%;"></div>
+            </div>
+            
+            <p>Social (Reddit): <span class="{% if sentiment.reddit >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.reddit * 100)|round(1) }}%</span></p>
+            <div class="sentiment-bar">
+                <div class="fill" style="width: {{ (sentiment.reddit + 1) * 50 }}%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sector Card -->
+    <div class="card">
+        <h3>Sector: {{ sector.sector }}</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>1M Return</th>
+                    <th>RSI</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for peer in sector.peers[:5] %}
+                <tr {% if peer.symbol in symbol %}class="highlight"{% endif %}>
+                    <td>{{ peer.symbol }}</td>
+                    <td class="{% if peer.return_1m >= 0 %}pos{% else %}neg{% endif %}">{{ peer.return_1m }}%</td>
+                    <td>{{ peer.rsi }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Macro Card -->
+    <div class="card">
+        <h3>Macro Signals</h3>
+        <ul>
+            {% for m, data in macro.items() %}
+            <li>
+                {{ m }}: <strong>{{ data.latest }}</strong> 
+                <span class="{% if data.change_pct >= 0 %}pos{% else %}neg{% endif %}">
+                    ({{ data.change_pct }}%)
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<div class="signal-breakdown card">
+    <h3>Signal Breakdown (Weights)</h3>
+    <div class="breakdown-grid">
+        {% for component, score in signal.breakdown.items() %}
+        <div class="component">
+            <p>{{ component|capitalize }}</p>
+            <div class="score-dot" style="background: hsl({{ (score + 1) * 60 }}, 70%, 50%)"></div>
+            <span>{{ score }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="news-feed card">
+    <h3>Latest News</h3>
+    {% if news %}
+    <ul>
+        {% for item in news %}
+        <li>
+            <a href="{{ item.link }}" target="_blank">{{ item.title }}</a>
+            <span class="date">{{ item.date }} | {{ item.source }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>No recent news found.</p>
+    {% endif %}
+</div>
+
+<script src="{{ url_for('static', filename='charts.js') }}"></script>
+<script>
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    const labels = {{ chart_data.labels | tojson }};
+    const prices = {{ chart_data.prices | tojson }};
+    renderPriceChart(ctx, labels, prices);
+</script>
+{% endblock %}

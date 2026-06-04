@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="stock-header">
+    <h2>Sector Intelligence - {{ sector.sector }}</h2>
+</div>
+
+<div class="card">
+    <h3>Industry Benchmarking</h3>
+    <p>Comparing <strong>{{ symbol }}</strong> against the top peers in the {{ sector.sector }} industry based on 1-month returns and volatility.</p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Company</th>
+                <th>1M Return</th>
+                <th>Volatility (Risk)</th>
+                <th>RSI (Strength)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for peer in sector.peers %}
+            <tr {% if peer.symbol in symbol %}class="highlight"{% endif %}>
+                <td>{{ peer.symbol }}</td>
+                <td class="{% if peer.return_1m >= 0 %}pos{% else %}neg{% endif %}">{{ peer.return_1m }}%</td>
+                <td>{{ peer.volatility }}%</td>
+                <td>{{ peer.rsi }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card" style="margin-top: 20px;">
+    <h3>What this means</h3>
+    <p>A higher 1M return compared to volatility indicates a stock that is outperforming its sector with stable growth. If the searched stock is at the bottom of this list, it may be underperforming its peers.</p>
+</div>
+{% endblock %}

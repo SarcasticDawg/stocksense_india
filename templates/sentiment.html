@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="stock-header">
+    <h2>Detailed Market Sentiment - {{ symbol }}</h2>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Sentiment Summary Card -->
+    <div class="card">
+        <h3>Aggregate Sentiment</h3>
+        <div class="sentiment-breakdown">
+            <p>News Score: <span class="{% if sentiment.news >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.news * 100)|round(1) }}%</span></p>
+            <p>Reddit Score: <span class="{% if sentiment.reddit >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.reddit * 100)|round(1) }}%</span></p>
+        </div>
+    </div>
+
+    <!-- Methodology Card -->
+    <div class="card">
+        <h3>AI Methodology</h3>
+        <p>Using <strong>ProsusAI/FinBERT</strong>, a pre-trained transformer model fine-tuned on financial data to detect bearish/bullish cues in text.</p>
+    </div>
+</div>
+
+<div class="news-feed card">
+    <h3>Sentiment Context (Recent News)</h3>
+    {% if news %}
+    <ul>
+        {% for item in news %}
+        <li>
+            <strong>{{ item.title }}</strong>
+            <p class="summary">{{ item.text[:300] }}...</p>
+            <span class="date">{{ item.date }} | {{ item.source }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>No recent context available.</p>
+    {% endif %}
+</div>
+{% endblock %}
