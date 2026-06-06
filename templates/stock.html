@@ -30,12 +30,12 @@
     <div class="card">
         <h3>Sentiment Score</h3>
         <div class="sentiment-bar-container">
-            <p>News: <span class="{% if sentiment.news >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.news * 100)|round(1) }}%</span></p>
+            <p>News ({{ sentiment.mentions.news }} mentions): <span class="{% if sentiment.news >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.news * 100)|round(1) }}%</span></p>
             <div class="sentiment-bar">
                 <div class="fill" style="width: {{ (sentiment.news + 1) * 50 }}%;"></div>
             </div>
             
-            <p>Social (Reddit): <span class="{% if sentiment.reddit >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.reddit * 100)|round(1) }}%</span></p>
+            <p>Social ({{ sentiment.mentions.reddit }} mentions): <span class="{% if sentiment.reddit >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.reddit * 100)|round(1) }}%</span></p>
             <div class="sentiment-bar">
                 <div class="fill" style="width: {{ (sentiment.reddit + 1) * 50 }}%;"></div>
             </div>

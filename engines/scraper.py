@@ -84,21 +84,29 @@ class RedditScraper:
 
     def get_sentiment_posts(self, query):
         """
-        Scrapes Reddit using public JSON endpoints. No API keys required.
+        Scrapes Reddit using public JSON endpoints with improved resilience.
         """
         posts = []
-        subreddits = ['IndiaInvestments', 'Sensex', 'stocks']
+        subreddits = ['IndiaInvestments', 'Sensex', 'stocks', 'WallStreetBets']
         
         # Keyword mapping for better search
         search_query = query
         if query.upper() == "TCS": search_query = "TCS OR 'Tata Consultancy'"
         if query.upper() == "INFY": search_query = "INFY OR Infosys"
         
+        # More realistic headers to avoid 403
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Referer': 'https://www.google.com/'
+        }
+        
         for sub in subreddits:
             try:
                 # Use Reddit's public JSON search endpoint
-                url = f"https://www.reddit.com/r/{sub}/search.json?q={search_query}&restrict_sr=1&sort=new&limit=5"
-                response = requests.get(url, headers=self.headers, timeout=10)
+                url = f"https://www.reddit.com/r/{sub}/search.json?q={search_query}&restrict_sr=1&sort=new&limit=10"
+                response = requests.get(url, headers=headers, timeout=5) # Shorter timeout
                 
                 if response.status_code == 200:
                     data = response.json()
@@ -107,26 +115,27 @@ class RedditScraper:
                         posts.append({
                             'title': post_data.get('title', ''),
                             'subreddit': sub,
-                            'comments': [post_data.get('selftext', '')[:200]], # Using post body as primary "comment" text
+                            'comments': [post_data.get('selftext', '')[:200]],
                             'score': post_data.get('score', 0)
                         })
-                else:
-                    print(f"Reddit Public API error for r/{sub}: HTTP {response.status_code}")
+                elif response.status_code == 403:
+                    # If 403, we skip this sub and move on quickly
+                    continue
             except Exception as e:
-                print(f"Error scraping public Reddit r/{sub}: {e}")
+                print(f"Reddit error for r/{sub}: {e}")
         
         # Fallback if no posts found
         if not posts:
             return [
                 {
-                    'title': f"General discussion on {query} potential",
-                    'subreddit': 'MarketWatch',
-                    'comments': ["Analyzing long term value and technical indicators."],
-                    'score': 10
+                    'title': f"Market sentiment analysis for {query}",
+                    'subreddit': 'FinancialAnalysis',
+                    'comments': ["Analyzing current valuation and sector trends for long-term outlook."],
+                    'score': 5
                 }
             ]
             
-        return posts[:20]
+        return posts[:25]
 
 def get_all_scraped_data(stock_name):
     ns = NewsScraper()

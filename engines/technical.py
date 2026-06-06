@@ -52,6 +52,27 @@ def add_technical_indicators(df):
     
     # Volume Change
     df['Vol_Change_Pct'] = df['Volume'].pct_change() * 100
+
+    # --- NEW FEATURES ---
+    
+    # 1. Lag Features
+    for lag in [1, 2, 3, 5, 10]:
+        df[f'Lag_Close_{lag}'] = df['Close'].shift(lag)
+    
+    # 2. Rolling Statistics
+    df['Roll_Mean_7'] = df['Close'].rolling(window=7).mean()
+    df['Roll_Mean_14'] = df['Close'].rolling(window=14).mean()
+    df['Roll_Std_30'] = df['Close'].rolling(window=30).std()
+    
+    # 3. Price Momentum (ROC - Rate of Change)
+    # (Current Price / Price n periods ago) - 1
+    df['Momentum_5'] = (df['Close'] / df['Close'].shift(5)) - 1
+    df['Momentum_10'] = (df['Close'] / df['Close'].shift(10)) - 1
+    
+    # 4. Relative Volume (RVOL)
+    # Current volume / 20-day average volume
+    df['MA20_Vol'] = df['Volume'].rolling(window=20).mean()
+    df['RVOL'] = df['Volume'] / df['MA20_Vol']
     
     return df
 

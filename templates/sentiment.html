@@ -10,15 +10,15 @@
     <div class="card">
         <h3>Aggregate Sentiment</h3>
         <div class="sentiment-breakdown">
-            <p>News Score: <span class="{% if sentiment.news >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.news * 100)|round(1) }}%</span></p>
-            <p>Reddit Score: <span class="{% if sentiment.reddit >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.reddit * 100)|round(1) }}%</span></p>
+            <p>News Score ({{ sentiment.mentions.news }} mentions): <span class="{% if sentiment.news >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.news * 100)|round(1) }}%</span></p>
+            <p>Reddit Score ({{ sentiment.mentions.reddit }} mentions): <span class="{% if sentiment.reddit >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.reddit * 100)|round(1) }}%</span></p>
         </div>
     </div>
 
     <!-- Methodology Card -->
     <div class="card">
-        <h3>AI Methodology</h3>
-        <p>Using <strong>ProsusAI/FinBERT</strong>, a pre-trained transformer model fine-tuned on financial data to detect bearish/bullish cues in text.</p>
+        <h3>Sentiment Methodology</h3>
+        <p>Using <strong>VADER (Valence Aware Dictionary and sEntiment Reasoner)</strong> enhanced with a custom <strong>Finance & Reddit Lexicon</strong>. Reddit sentiment is weighted by post upvotes using a logarithmic scale.</p>
     </div>
 </div>
 

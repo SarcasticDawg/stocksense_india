@@ -56,7 +56,8 @@ def get_market_indices():
     }
     data = {}
     for name, symbol in indices.items():
-        data[name] = get_stock_data(symbol)
+        # Fetching only 5 days for quick homepage summary
+        data[name] = get_stock_data(symbol, period="5d")
     return data
 
 def get_stock_info(symbol):

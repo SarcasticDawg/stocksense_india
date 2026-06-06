@@ -52,10 +52,18 @@ class StockPredictor:
             df = df.dropna()
         
         # Features required
-        feature_cols = ['Close', 'RSI', 'MACD', 'BB_Position', 'MA50', 'MA200', 'Vol_Change_Pct']
+        feature_cols = [
+            'Close', 'RSI', 'MACD', 'BB_Position', 'MA50', 'MA200', 'Vol_Change_Pct',
+            'Lag_Close_1', 'Lag_Close_2', 'Lag_Close_3', 'Lag_Close_5', 'Lag_Close_10',
+            'Roll_Mean_7', 'Roll_Mean_14', 'Roll_Std_30',
+            'Momentum_5', 'Momentum_10', 'RVOL'
+        ]
         feature_cols += [f'macro_{m}' for m in macros.keys()]
         
-        return df[feature_cols], df['Close']
+        # Ensure all columns exist
+        available_cols = [c for c in feature_cols if c in df.columns]
+        
+        return df[available_cols], df['Close']
 
     def create_sequences(self, data, target, window=60):
         X, y = [], []
