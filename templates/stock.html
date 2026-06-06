@@ -9,10 +9,49 @@
 </div>
 
 <!-- Price Chart Section -->
-<div class="card chart-card" style="height: 350px; margin-bottom: 20px;">
-    <h3>Price History (3 Months)</h3>
-    <canvas id="priceChart"></canvas>
+<div class="card chart-card" style="height: 400px; margin-bottom: 20px;">
+    <div class="chart-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin: 0; border: none; padding: 0;">Price History</h3>
+        <div class="period-selector">
+            <button class="period-btn" onclick="updateChartPeriod('{{ symbol }}', '1mo')">1M</button>
+            <button class="period-btn active" onclick="updateChartPeriod('{{ symbol }}', '3mo')">3M</button>
+            <button class="period-btn" onclick="updateChartPeriod('{{ symbol }}', '6mo')">6M</button>
+            <button class="period-btn" onclick="updateChartPeriod('{{ symbol }}', '1y')">1Y</button>
+            <button class="period-btn" onclick="updateChartPeriod('{{ symbol }}', '5y')">5Y</button>
+        </div>
+    </div>
+    <div style="height: 300px;">
+        <canvas id="priceChart"></canvas>
+    </div>
 </div>
+
+<style>
+    .period-selector {
+        display: flex;
+        gap: 5px;
+        background: var(--bg-color);
+        padding: 4px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+    }
+    .period-btn {
+        background: transparent;
+        border: none;
+        color: var(--hold-color);
+        padding: 4px 10px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+    .period-btn:hover {
+        color: white;
+    }
+    .period-btn.active {
+        background: var(--accent-color);
+        color: white;
+    }
+</style>
 
 <div class="dashboard-grid">
     <!-- Prediction Card -->
@@ -67,30 +106,77 @@
 
     <!-- Macro Card -->
     <div class="card">
-        <h3>Macro Signals</h3>
-        <ul>
-            {% for m, data in macro.items() %}
+        <h3>Smart Money Signals</h3>
+        <ul class="inst-signals">
+            {% if macro.INSTITUTIONAL %}
             <li>
-                {{ m }}: <strong>{{ data.latest }}</strong> 
-                <span class="{% if data.change_pct >= 0 %}pos{% else %}neg{% endif %}">
-                    ({{ data.change_pct }}%)
-                </span>
+                FII Net Cash: 
+                <strong class="{% if macro.INSTITUTIONAL.cash.fii >= 0 %}pos{% else %}neg{% endif %}">
+                    ₹{{ macro.INSTITUTIONAL.cash.fii }} Cr
+                </strong>
             </li>
-            {% endfor %}
+            <li>
+                DII Net Cash: 
+                <strong class="{% if macro.INSTITUTIONAL.cash.dii >= 0 %}pos{% else %}neg{% endif %}">
+                    ₹{{ macro.INSTITUTIONAL.cash.dii }} Cr
+                </strong>
+            </li>
+            <li>
+                FII Futures: 
+                <strong class="{% if macro.INSTITUTIONAL.fii_future.view == 'BULLISH' %}pos{% elif macro.INSTITUTIONAL.fii_future.view == 'BEARISH' %}neg{% endif %}">
+                    {{ macro.INSTITUTIONAL.fii_future.view }}
+                </strong>
+            </li>
+            <li>
+                Put/Call Ratio: 
+                {% if pcr %}
+                <strong class="{% if pcr.sentiment == 'Bullish' %}pos{% elif pcr.sentiment == 'Bearish' %}neg{% endif %}">
+                    {{ pcr.pcr }}
+                </strong>
+                <small>({{ pcr.sentiment }})</small>
+                {% else %}
+                <small>N/A</small>
+                {% endif %}
+            </li>
+            {% endif %}
         </ul>
+        <hr>
+        <div class="other-macros" style="font-size: 0.85rem; opacity: 0.8;">
+            {% if macro.India_VIX %}
+            <p>India VIX: <strong>{{ macro.India_VIX.latest }}</strong> <span class="{% if macro.India_VIX.change_pct <= 0 %}pos{% else %}neg{% endif %}">({{ macro.India_VIX.change_pct }}%)</span></p>
+            {% endif %}
+            
+            {% if macro.SP500 %}
+            <p>S&P 500: <span class="{% if macro.SP500.change_pct >= 0 %}pos{% else %}neg{% endif %}">{{ macro.SP500.change_pct }}%</span></p>
+            {% endif %}
+        </div>
     </div>
 </div>
 
 <div class="signal-breakdown card">
-    <h3>Signal Breakdown (Weights)</h3>
+    <h3>Final Signal Breakdown</h3>
     <div class="breakdown-grid">
-        {% for component, score in signal.breakdown.items() %}
         <div class="component">
-            <p>{{ component|capitalize }}</p>
-            <div class="score-dot" style="background: hsl({{ (score + 1) * 60 }}, 70%, 50%)"></div>
-            <span>{{ score }}</span>
+            <p>AI Predictor</p>
+            <div class="score-dot" style="background: hsl({{ (signal.breakdown.price + 1) * 60 }}, 70%, 50%)"></div>
+            <span>{{ signal.breakdown.price }}</span>
         </div>
-        {% endfor %}
+        <div class="component">
+            <p>Smart Money</p>
+            <div class="score-dot" style="background: hsl({{ (signal.breakdown.institutional + 1) * 60 }}, 70%, 50%)"></div>
+            <span>{{ signal.breakdown.institutional }}</span>
+        </div>
+        <div class="component">
+            <p>Sentiment</p>
+            {% set sent_avg = (signal.breakdown.news + signal.breakdown.reddit) / 2 %}
+            <div class="score-dot" style="background: hsl({{ (sent_avg + 1) * 60 }}, 70%, 50%)"></div>
+            <span>{{ sent_avg|round(2) }}</span>
+        </div>
+        <div class="component">
+            <p>Sector Rank</p>
+            <div class="score-dot" style="background: hsl({{ (signal.breakdown.sector + 1) * 60 }}, 70%, 50%)"></div>
+            <span>{{ signal.breakdown.sector }}</span>
+        </div>
     </div>
 </div>
 

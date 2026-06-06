@@ -16,7 +16,11 @@ The project is built using a modular "Engine" architecture:
     - **XGBoost**: Predicts the probability of a directional move (Up/Down) over the next 5 days, utilizing technical, macro, and volume-based features (RVOL).
 - **`engines/sentiment.py`**: Uses **VADER** (Valence Aware Dictionary and sEntiment Reasoner) with a custom **Finance & Reddit Lexicon**.
 - **`engines/scraper.py`**: Scrapes latest news from Zerodha Pulse/RSS feeds and social sentiment from Reddit (IndiaInvestments, stocks, etc.).
-- **`engines/macro.py`**: Tracks global signals like India VIX, Brent Crude, USD/INR, and S&P 500.
+- **`engines/macro.py`**: Tracks global signals (VIX, Crude, USD/INR) and institutional liquidity via **Sensibull F&O Data**.
+    - **Cash Flows**: FII/DII net buying/selling in the cash market.
+    - **F&O Sentiment**: Institutional positioning in Index Futures and Options.
+    - **Retail Contrarian**: Tracks retail (client) sentiment as a counter-indicator.
+- **`engines/fno.py`**: Scrapes stock-specific **Put/Call Ratio (PCR)** from NiftyInvest to gauge professional hedging vs. speculation.
 - **`engines/sector.py`**: Ranks the searched stock against its top 5 industry peers.
 
 ---
@@ -26,7 +30,8 @@ The final recommendation is calculated using a weighted score:
 1. **Price Prediction (30%)**: Normalized target price change.
 2. **News Sentiment (20%)**: VADER score of recent headlines.
 3. **Reddit Sentiment (15%)**: VADER score of discussions, weighted by upvotes (log scale).
-4. **Macro Signals (20%)**: Market volatility and global trends.
+4. **Macro Signals (20%)**: Combined institutional flows and options positioning.
+    - *Internal Weighting*: Indices/VIX (25%), Cash Flow (25%), F&O View (25%), Retail Contrarian (10%), **Stock PCR (15%)**.
 5. **Sector Position (15%)**: Performance relative to industry peers.
 
 ---
@@ -63,7 +68,10 @@ stocksense/
 ## 5. Future Roadmap
 - [x] Integrate VADER with custom Finance Lexicon.
 - [x] Implement Reddit upvote weighting for sentiment.
-- [ ] Add Chart.js for interactive historical price graphs.
+- [x] Integrate FII/DII and F&O institutional flow data.
+- [x] Implement Retail Contrarian signal logic.
+- [x] Create Batch AI Trainer for Nifty 50 pre-computation.
+- [x] Add interactive Chart.js with dynamic period selection (1M, 3M, 1Y, etc.).
 - [ ] Implement a daily auto-retraining schedule for ML models.
 - [ ] Add real-time price alerts via Email/Telegram.
 

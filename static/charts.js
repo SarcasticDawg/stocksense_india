@@ -1,35 +1,96 @@
-function renderPriceChart(ctx, labels, prices) {
-    const chart = new Chart(ctx, {
+let priceChart = null;
+
+function renderPriceChart(ctx, labels, prices, period = '3mo') {
+    if (priceChart) {
+        priceChart.destroy();
+    }
+
+    // Modern Gradient
+    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+    gradient.addColorStop(0, 'rgba(88, 166, 255, 0.3)');
+    gradient.addColorStop(1, 'rgba(88, 166, 255, 0.0)');
+
+    priceChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
             datasets: [{
-                label: 'Price (INR)',
+                label: 'Price',
                 data: prices,
                 borderColor: '#58a6ff',
-                backgroundColor: 'rgba(88, 166, 255, 0.1)',
+                backgroundColor: gradient,
                 fill: true,
                 borderWidth: 2,
-                tension: 0.3,
-                pointRadius: 0
+                tension: 0.2,
+                pointRadius: prices.length > 50 ? 0 : 3,
+                pointHoverRadius: 6,
+                pointHoverBackgroundColor: '#58a6ff',
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 2
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index',
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#161b22',
+                    titleColor: '#8b949e',
+                    bodyColor: '#c9d1d9',
+                    borderColor: '#30363d',
+                    borderWidth: 1,
+                    displayColors: false,
+                    callbacks: {
+                        label: function(context) {
+                            return `₹ ${context.parsed.y.toLocaleString()}`;
+                        }
+                    }
+                }
+            },
             scales: {
                 x: {
                     grid: { display: false },
-                    ticks: { maxTicksLimit: 8, color: '#8b949e' }
+                    ticks: { 
+                        maxTicksLimit: 8, 
+                        color: '#8b949e',
+                        font: { size: 11 }
+                    }
                 },
                 y: {
-                    grid: { color: '#30363d' },
-                    ticks: { color: '#8b949e' }
+                    grid: { color: 'rgba(48, 54, 61, 0.5)' },
+                    ticks: { 
+                        color: '#8b949e',
+                        font: { size: 11 },
+                        callback: function(value) {
+                            return '₹' + value;
+                        }
+                    }
                 }
-            },
-            plugins: {
-                legend: { display: false }
             }
         }
     });
+}
+
+async function updateChartPeriod(symbol, period) {
+    // UI Feedback
+    const buttons = document.querySelectorAll('.period-btn');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`[onclick*="${period}"]`).classList.add('active');
+
+    try {
+        const response = await fetch(`/api/chart/${symbol}?period=${period}`);
+        const data = await response.json();
+        
+        if (data.labels && data.prices) {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            renderPriceChart(ctx, data.labels, data.prices, period);
+        }
+    } catch (error) {
+        console.error('Error updating chart:', error);
+    }
 }

@@ -41,7 +41,8 @@ def get_chart_data(symbol, period="3mo"):
     
     return {
         "labels": labels,
-        "prices": prices
+        "prices": prices,
+        "period": period
     }
 
 def get_market_indices():
