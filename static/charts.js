@@ -1,6 +1,6 @@
 let priceChart = null;
 
-function renderPriceChart(ctx, labels, prices, period = '3mo') {
+function renderPriceChart(ctx, labels, prices, period = '3mo', signals = []) {
     if (priceChart) {
         priceChart.destroy();
     }
@@ -10,24 +10,57 @@ function renderPriceChart(ctx, labels, prices, period = '3mo') {
     gradient.addColorStop(0, 'rgba(88, 166, 255, 0.3)');
     gradient.addColorStop(1, 'rgba(88, 166, 255, 0.0)');
 
+    // Process Signal Markers
+    const buyPoints = labels.map(l => {
+        const sig = signals.find(s => s.date === l && s.verdict === 'BUY');
+        return sig ? sig.price : null;
+    });
+
+    const sellPoints = labels.map(l => {
+        const sig = signals.find(s => s.date === l && s.verdict === 'SELL');
+        return sig ? sig.price : null;
+    });
+
     priceChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
-            datasets: [{
-                label: 'Price',
-                data: prices,
-                borderColor: '#58a6ff',
-                backgroundColor: gradient,
-                fill: true,
-                borderWidth: 2,
-                tension: 0.2,
-                pointRadius: prices.length > 50 ? 0 : 3,
-                pointHoverRadius: 6,
-                pointHoverBackgroundColor: '#58a6ff',
-                pointHoverBorderColor: '#fff',
-                pointHoverBorderWidth: 2
-            }]
+            datasets: [
+                {
+                    label: 'Price',
+                    data: prices,
+                    borderColor: '#58a6ff',
+                    backgroundColor: gradient,
+                    fill: true,
+                    borderWidth: 2,
+                    tension: 0.2,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    zIndex: 1
+                },
+                {
+                    label: 'BUY Signal',
+                    data: buyPoints,
+                    backgroundColor: '#238636',
+                    borderColor: '#fff',
+                    borderWidth: 1,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    showLine: false,
+                    zIndex: 10
+                },
+                {
+                    label: 'SELL Signal',
+                    data: sellPoints,
+                    backgroundColor: '#da3633',
+                    borderColor: '#fff',
+                    borderWidth: 1,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    showLine: false,
+                    zIndex: 10
+                }
+            ]
         },
         options: {
             responsive: true,

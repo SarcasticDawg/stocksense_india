@@ -69,6 +69,11 @@
     <div class="card">
         <h3>Sentiment Score</h3>
         <div class="sentiment-bar-container">
+            <p>Institutional ({{ sentiment.mentions.corp }} filings): <span class="{% if sentiment.corporate >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.corporate * 100)|round(1) }}%</span></p>
+            <div class="sentiment-bar">
+                <div class="fill" style="width: {{ (sentiment.corporate + 1) * 50 }}%;"></div>
+            </div>
+
             <p>News ({{ sentiment.mentions.news }} mentions): <span class="{% if sentiment.news >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.news * 100)|round(1) }}%</span></p>
             <div class="sentiment-bar">
                 <div class="fill" style="width: {{ (sentiment.news + 1) * 50 }}%;"></div>
@@ -79,6 +84,23 @@
                 <div class="fill" style="width: {{ (sentiment.reddit + 1) * 50 }}%;"></div>
             </div>
         </div>
+    </div>
+
+    <!-- Corporate Intelligence Card -->
+    <div class="card">
+        <h3>Corporate Intelligence</h3>
+        {% if corporate %}
+        <ul style="list-style: none; padding: 0; font-size: 0.85rem;">
+            {% for item in corporate[:5] %}
+            <li style="margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color);">
+                <span class="date" style="color: var(--hold-color); font-size: 0.7rem;">{{ item.date }}</span>
+                <p style="margin: 3px 0; font-weight: 500;">{{ item.title }}</p>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>No recent filings found.</p>
+        {% endif %}
     </div>
 
     <!-- Sector Card -->
@@ -104,7 +126,7 @@
         </table>
     </div>
 
-    <!-- Macro Card -->
+    <!-- Smart Money Card -->
     <div class="card">
         <h3>Smart Money Signals</h3>
         <ul class="inst-signals">
@@ -138,6 +160,15 @@
                 <small>N/A</small>
                 {% endif %}
             </li>
+            {% if conviction %}
+            <li>
+                Delivery: 
+                <strong class="{% if conviction.latest_pct > conviction.avg_5d %}pos{% elif conviction.latest_pct < 20 %}neg{% endif %}">
+                    {{ conviction.latest_pct }}%
+                </strong>
+                <small>({{ conviction.verdict }})</small>
+            </li>
+            {% endif %}
             {% endif %}
         </ul>
         <hr>
@@ -151,10 +182,51 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- Backtest Card -->
+    <div class="card">
+        <h3>Strategy Accuracy Proof</h3>
+        {% if backtest %}
+        <div class="accuracy-stats">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <p style="margin: 0; font-size: 0.8rem; color: var(--hold-color);">Signal Win Rate (Last 6M)</p>
+                <strong style="font-size: 2rem; color: {% if backtest.win_rate >= 50 %}var(--pos-color){% else %}var(--neg-color){% endif %};">
+                    {{ backtest.win_rate }}%
+                </strong>
+            </div>
+            <ul style="list-style: none; padding: 0; font-size: 0.9rem;">
+                <li style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span>Total Signals:</span>
+                    <strong>{{ backtest.total_trades }}</strong>
+                </li>
+                <li style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span>Avg. Signal Return:</span>
+                    <strong class="{% if backtest.avg_return_per_trade >= 0 %}pos{% else %}neg{% endif %}">
+                        {{ backtest.avg_return_per_trade }}%
+                    </strong>
+                </li>
+                <li style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span>Cumulative Accuracy Return:</span>
+                    <strong class="{% if backtest.cumulative_return >= 0 %}pos{% else %}neg{% endif %}">
+                        {{ backtest.cumulative_return }}%
+                    </strong>
+                </li>
+            </ul>
+        </div>
+        {% else %}
+        <p>Insufficient history for backtesting.</p>
+        {% endif %}
+    </div>
 </div>
 
 <div class="signal-breakdown card">
-    <h3>Final Signal Breakdown</h3>
+    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+        <h3>Final Signal Breakdown</h3>
+        <div style="text-align: right;">
+            <small style="color: var(--hold-color); font-size: 0.75rem; display: block;">Method: {{ signal.method }}</small>
+            <small style="color: var(--accent-color); font-size: 0.75rem; display: block;">Sentiment Mode: {{ signal.sent_mode }}</small>
+        </div>
+    </div>
     <div class="breakdown-grid">
         <div class="component">
             <p>AI Predictor</p>
@@ -168,9 +240,8 @@
         </div>
         <div class="component">
             <p>Sentiment</p>
-            {% set sent_avg = (signal.breakdown.news + signal.breakdown.reddit) / 2 %}
-            <div class="score-dot" style="background: hsl({{ (sent_avg + 1) * 60 }}, 70%, 50%)"></div>
-            <span>{{ sent_avg|round(2) }}</span>
+            <div class="score-dot" style="background: hsl({{ (signal.breakdown.sentiment + 1) * 60 }}, 70%, 50%)"></div>
+            <span>{{ signal.breakdown.sentiment }}</span>
         </div>
         <div class="component">
             <p>Sector Rank</p>
@@ -180,19 +251,22 @@
     </div>
 </div>
 
-<div class="news-feed card">
-    <h3>Latest News</h3>
-    {% if news %}
-    <ul>
-        {% for item in news %}
-        <li>
-            <a href="{{ item.link }}" target="_blank">{{ item.title }}</a>
-            <span class="date">{{ item.date }} | {{ item.source }}</span>
+<div class="unified-feed card">
+    <h3>News & Announcements</h3>
+    {% if unified_feed %}
+    <ul class="feed-list">
+        {% for item in unified_feed %}
+        <li class="feed-item">
+            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                <span class="type-tag {{ item.type.lower() }}">{{ item.type }}</span>
+                <span class="date">{{ item.date }} | {{ item.source }}</span>
+            </div>
+            <a href="{{ item.link }}" target="_blank" class="feed-title">{{ item.title }}</a>
         </li>
         {% endfor %}
     </ul>
     {% else %}
-    <p>No recent news found.</p>
+    <p>No recent news or announcements found.</p>
     {% endif %}
 </div>
 
@@ -201,6 +275,7 @@
     const ctx = document.getElementById('priceChart').getContext('2d');
     const labels = {{ chart_data.labels | tojson }};
     const prices = {{ chart_data.prices | tojson }};
-    renderPriceChart(ctx, labels, prices);
+    const historicalSignals = {{ (backtest.signals if backtest else []) | tojson }};
+    renderPriceChart(ctx, labels, prices, '3mo', historicalSignals);
 </script>
 {% endblock %}

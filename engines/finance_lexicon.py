@@ -41,4 +41,14 @@ finance_lexicon = {
     "paper hands": -1.5,
     "hodl": 2.0,
     "short squeeze": 3.0,
+
+    # Nuance and Mixed-Signal Handling
+    "in line with estimates": 0.0,
+    "results in line": 0.0,
+    "margins contract": -1.5,
+    "margin pressure": -2.0,
+    "revenue grows": 1.5,
+    "profit up 2%": 0.5, # Technically positive but weak
+    "flat growth": -0.5,
+    "guidance maintained": 0.0,
 }

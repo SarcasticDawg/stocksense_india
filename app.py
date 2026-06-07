@@ -18,34 +18,43 @@ import sentiment
 import sector
 import macro
 import fno
+import market_context
+import meta_model
+import backtester
+import conviction
 
 app = Flask(__name__)
 
 # Global state
 _stock_predictor = None
 _sentiment_analyzer = None
+_meta_model = None
 _models_loading = False
 _training_lock = threading.Lock()
 
+# Config
+USE_LEGACY_WEIGHTS = os.environ.get('USE_LEGACY_WEIGHTS', 'false').lower() == 'true'
+
 def load_models_task():
-    global _stock_predictor, _sentiment_analyzer, _models_loading
-    if _stock_predictor is None or _sentiment_analyzer is None:
+    global _stock_predictor, _sentiment_analyzer, _meta_model, _models_loading
+    if _stock_predictor is None or _sentiment_analyzer is None or _meta_model is None:
         if _models_loading: return
         _models_loading = True
-        print("--- [Server] Waking up AI Engines... ---")
+        print("--- [Server] Initializing Market-Adaptive Ensemble... ---")
         try:
             if _stock_predictor is None: _stock_predictor = predictor.StockPredictor()
             if _sentiment_analyzer is None: _sentiment_analyzer = sentiment.SentimentAnalyzer()
+            if _meta_model is None: _meta_model = meta_model.MetaModel()
         except Exception as e:
             print(f"Error loading models: {e}")
         _models_loading = False
-        print("--- [Server] AI Engines Ready. ---")
+        print("--- [Server] Ensemble Ready. ---")
 
 def get_models():
-    global _stock_predictor, _sentiment_analyzer
-    if _stock_predictor is None or _sentiment_analyzer is None:
+    global _stock_predictor, _sentiment_analyzer, _meta_model
+    if _stock_predictor is None or _sentiment_analyzer is None or _meta_model is None:
         load_models_task()
-    return _stock_predictor, _sentiment_analyzer
+    return _stock_predictor, _sentiment_analyzer, _meta_model
 
 def safe_train(pred_engine, symbol):
     with _training_lock:
@@ -56,69 +65,36 @@ def safe_train(pred_engine, symbol):
             print(f"Background Training Error: {e}")
         gc.collect()
 
-def compute_combined_signal(symbol, pred_data, news_sentiment, reddit_sentiment, macro_data, sector_data):
+def compute_combined_signal(symbol, pred_data, sentiment_metadata, macro_data, sector_data, conviction_data, meta_engine):
     """
-    Robust signal computation with extreme null safety.
+    Robust signal computation with Contextual Sentiment Weighting.
     """
-    # Initialize defaults
-    price_score = 0.0
-    news_score = float(news_sentiment) if news_sentiment is not None else 0.0
-    reddit_score = float(reddit_sentiment) if reddit_sentiment is not None else 0.0
-    macro_score = 0.0
-    sector_score = 0.0
+    # 1. Prepare AI Scores (Blended LightGBM + XGBoost)
+    lgbm_change = pred_data.get('price_change_pct', 0) if isinstance(pred_data, dict) else 0
+    lgbm_score = np.clip(lgbm_change / 5.0, -1, 1)
     
-    # 1. Price Prediction
-    if isinstance(pred_data, dict):
-        change = pred_data.get('price_change_pct', 0)
-        if change is not None:
-            price_score = float(np.clip(float(change) / 5.0, -1, 1))
+    xgb_prob = pred_data.get('trend_prob_up', 0.5) if isinstance(pred_data, dict) else 0.5
+    xgb_score = (xgb_prob - 0.5) * 2 
+    
+    ai_score = (lgbm_score * 0.6) + (xgb_score * 0.4)
+    
+    inst = macro_data.get('INSTITUTIONAL', {})
+    cash_net = 0.0
+    if isinstance(inst, dict) and isinstance(inst.get('cash'), dict):
+        cash_net = float(inst['cash'].get('fii', 0)) + float(inst['cash'].get('dii', 0))
+    inst_flow_score = np.clip(cash_net / 2500.0, -1, 1)
+    
+    pcr_val = 1.0
+    if isinstance(pred_data, dict) and isinstance(pred_data.get('pcr_data'), dict):
+        pcr_val = float(pred_data['pcr_data'].get('pcr', 1.0))
+    pcr_score = np.clip((pcr_val - 0.9) * 2.0, -1, 1)
+    
+    conv_score = 0.0
+    if isinstance(conviction_data, dict):
+        conv_val = conviction_data.get('latest_pct', 30)
+        conv_score = np.clip((conv_val - 40) / 20.0, -1, 1)
 
-    # 2. Macro & Institutional
-    if isinstance(macro_data, dict):
-        vix_change = 0.0
-        vix_obj = macro_data.get('India_VIX')
-        if isinstance(vix_obj, dict): vix_change = float(vix_obj.get('change_pct', 0))
-        
-        sp_change = 0.0
-        sp_obj = macro_data.get('SP500')
-        if isinstance(sp_obj, dict): sp_change = float(sp_obj.get('change_pct', 0))
-        
-        base_macro = (sp_change - vix_change) / 10.0
-        
-        inst = macro_data.get('INSTITUTIONAL', {})
-        if isinstance(inst, dict):
-            cash_net = 0.0
-            cash_obj = inst.get('cash')
-            if isinstance(cash_obj, dict):
-                cash_net = float(cash_obj.get('fii', 0)) + float(cash_obj.get('dii', 0))
-            cash_score = float(np.clip(cash_net / 2500.0, -1, 1))
-            
-            view_map = {"BULLISH": 1.0, "BEARISH": -1.0, "Neutral": 0.0, "": 0.0}
-            strength_map = {"Strong": 1.0, "Medium": 0.7, "Mild": 0.4, "Low": 0.2, "": 0.0}
-            
-            f_view = inst.get('fii_future', {})
-            fii_f = 0.0
-            if isinstance(f_view, dict):
-                fii_f = view_map.get(f_view.get('view'), 0.0) * strength_map.get(f_view.get('strength'), 0.0)
-            
-            o_view = inst.get('fii_option', {})
-            fii_o = 0.0
-            if isinstance(o_view, dict):
-                fii_o = view_map.get(o_view.get('view'), 0.0) * strength_map.get(o_view.get('strength'), 0.0)
-            
-            client_view = inst.get('client_view', 'Neutral')
-            retail_score = -1.0 if client_view == "BULLISH" else (1.0 if client_view == "BEARISH" else 0.0)
-            
-            pcr_val = 1.0
-            if isinstance(pred_data, dict) and isinstance(pred_data.get('pcr_data'), dict):
-                pcr_val = float(pred_data['pcr_data'].get('pcr', 1.0))
-            pcr_score = float(np.clip((pcr_val - 0.9) * 2.0, -1, 1))
-
-            macro_score = float(np.clip(
-                (base_macro * 0.25) + (cash_score * 0.25) + 
-                ((fii_f + fii_o) / 2.0 * 0.25) + (retail_score * 0.1) + (pcr_score * 0.15), -1, 1))
-
-    # 3. Sector
+    sector_score = 0.0
     if isinstance(sector_data, dict):
         peers = sector_data.get('peers', [])
         clean_sym = symbol.replace(".NS", "")
@@ -128,10 +104,91 @@ def compute_combined_signal(symbol, pred_data, news_sentiment, reddit_sentiment,
                 symbol_rank = i
                 break
         if len(peers) > 0:
-            sector_score = 1.0 - (symbol_rank / len(peers))
-            sector_score = (sector_score * 2) - 1 
+            sector_score = (1.0 - (symbol_rank / len(peers))) * 2 - 1
+
+    regime_data = macro_data.get('REGIME', {})
+    regime_val = 1 if regime_data.get('regime') == 'BULL' else (-1 if regime_data.get('regime') == 'BEAR' else 0)
+
+    # 2. Determine Contextual Sentiment Weight
+    sent_score = sentiment_metadata.get('total_score', 0.0)
+    mentions = sentiment_metadata.get('mentions', {})
     
-    total_score = (price_score * 0.3) + (news_score * 0.2) + (reddit_score * 0.15) + (macro_score * 0.2) + (sector_score * 0.15)
+    # 6-Circumstance Logic
+    sent_weight = 0.20
+    sent_mode = "Full"
+    
+    if mentions.get('corp', 0) >= 1:
+        sent_weight = 0.20
+        sent_mode = "Full (Official)"
+    elif mentions.get('news', 0) >= 3:
+        sent_weight = 0.10
+        sent_mode = "Partial (News)"
+    elif mentions.get('reddit', 0) >= 5:
+        sent_weight = 0.05
+        sent_mode = "Minimal (Social)"
+    else:
+        sent_weight = 0.0
+        sent_mode = "None (Insufficient)"
+
+    # 3. F&O Data Availability Check
+    has_fo = False
+    inst = macro_data.get('INSTITUTIONAL', {})
+    if isinstance(inst, dict):
+        # Check if FII Futures or Options views are present (not 'Neutral' or empty)
+        f_view = inst.get('fii_future', {}).get('view', 'Neutral')
+        o_view = inst.get('fii_option', {}).get('view', 'Neutral')
+        if f_view != 'Neutral' or o_view != 'Neutral' or pcr_val != 1.0:
+            has_fo = True
+
+    current_features = {
+        'ai_price': float(ai_score),
+        'sentiment': float(sent_score),
+        'inst_flow': float(inst_flow_score),
+        'pcr': float(pcr_score),
+        'conviction': float(conv_score),
+        'sector': float(sector_score),
+        'regime': float(regime_val)
+    }
+
+    # 4. Compute Total Score
+    if USE_LEGACY_WEIGHTS or meta_engine.model is None:
+        # Redistribution Logic for Manual Weights
+        # Baseline: AI (0.30), Sentiment (0.20), Inst (0.20), Conv (0.15), Sect (0.15)
+        # PCR is normally 15% of the 20% Inst slice, but here we treat it as 0.15 of total in legacy.
+        
+        # Initial target weights
+        w_ai, w_sent, w_inst, w_conv, w_sect = 0.30, sent_weight, 0.20, 0.15, 0.15
+        
+        # If no F&O data, redistribute PCR weight (part of w_inst and w_ai)
+        if not has_fo:
+            # Shift weight from F&O components to Cash Flow and AI
+            w_inst += 0.05 # Increase Cash Flow importance
+            w_ai += 0.10   # Increase AI importance
+            # We skip PCR calculation in total_score below by effectively setting it to 0 or 
+            # reducing the institutional slice to just Cash.
+        
+        # Normalize weights to ensure sum = 1.0
+        total_w = w_ai + w_sent + w_inst + w_conv + w_sect
+        w_ai /= total_w
+        w_sent /= total_w
+        w_inst /= total_w
+        w_conv /= total_w
+        w_sect /= total_w
+        
+        total_score = (
+            (current_features['ai_price'] * w_ai) +
+            (current_features['sentiment'] * w_sent) +
+            (current_features['inst_flow'] * w_inst) +
+            (current_features['conviction'] * w_conv) +
+            (current_features['sector'] * w_sect)
+        )
+        method = "Contextual Manual Weights"
+        if not has_fo: method += " (Non-F&O Fallback)"
+    else:
+        total_score = meta_engine.predict(current_features)
+        method = "Machine-Learned Ensemble"
+
+    meta_engine.cache_features(symbol, current_features)
     
     verdict = "HOLD"
     if total_score > 0.3: verdict = "BUY"
@@ -140,11 +197,13 @@ def compute_combined_signal(symbol, pred_data, news_sentiment, reddit_sentiment,
     return {
         'verdict': verdict,
         'score': round(float(total_score), 2),
+        'method': method,
+        'sent_mode': sent_mode,
         'breakdown': {
-            'price': round(float(price_score), 2),
-            'news': round(float(news_score), 2),
-            'reddit': round(float(reddit_score), 2),
-            'institutional': round(float(macro_score), 2),
+            'price': round(float(ai_score), 2),
+            'sentiment': round(float(sent_score), 2),
+            'institutional': round(float(inst_flow_score), 2),
+            'conviction': round(float(conv_score), 2),
             'sector': round(float(sector_score), 2)
         }
     }
@@ -155,6 +214,8 @@ analysis_cache = {}
 def home():
     try:
         indices = data_engine.get_market_indices()
+        regime = market_context.get_market_regime()
+        breadth = market_context.get_market_breadth()
         index_summary = {}
         for name, df in indices.items():
             if df is not None and not df.empty:
@@ -169,7 +230,7 @@ def home():
             stock_list = stocks_df.sort_values(by='Symbol').to_dict('records')
         except:
             stock_list = []
-        return render_template('home.html', indices=index_summary, stock_list=stock_list, app_name="StockIntel")
+        return render_template('home.html', indices=index_summary, stock_list=stock_list, regime=regime, breadth=breadth, app_name="StockIntel")
     except Exception as e:
         print(f"Home route error: {e}")
         return render_template('error.html', message="System error on home page.")
@@ -186,24 +247,30 @@ def stock_detail(symbol):
             future_models = executor.submit(get_models)
             future_raw = executor.submit(data_engine.get_all_raw_data, symbol)
             future_macro = executor.submit(macro.get_macro_data)
+            future_regime = executor.submit(market_context.get_market_regime)
             future_sector = executor.submit(sector.get_sector_analysis, symbol)
             future_chart = executor.submit(data_engine.get_chart_data, symbol)
             future_pcr = executor.submit(fno.get_stock_pcr, symbol)
-            
+            future_conv = executor.submit(conviction.get_delivery_data, symbol)
+            future_bt = executor.submit(backtester.StrategyBacktester().run_backtest, symbol)
+
             raw_data = future_raw.result()
             macro_data = future_macro.result() or {}
+            macro_data['REGIME'] = future_regime.result()
             sector_data = future_sector.result() or {}
             chart_data = future_chart.result() or {"labels":[], "prices":[]}
             pcr_data = future_pcr.result() or {"pcr": 1.0, "sentiment": "Neutral"}
-            pred_engine, sent_engine = future_models.result()
+            conv_data = future_conv.result()
+            bt_data = future_bt.result()
+            pred_engine, sent_engine, meta_engine = future_models.result()
             
         if not raw_data or raw_data.get('price_data') is None:
             return render_template('error.html', message=f"Could not fetch data for {symbol}")
 
         cur_price = round(float(raw_data['price_data']['Close'].iloc[-1]), 2)
-        lstm_path = os.path.join('models', f'lstm_{symbol}.keras')
+        lgbm_path = os.path.join('models', f'lgbm_{symbol}.joblib')
         
-        if not os.path.exists(lstm_path):
+        if not os.path.exists(lgbm_path):
             threading.Thread(target=safe_train, args=(pred_engine, symbol)).start()
             pred_data = {'current_price': cur_price, 'predicted_price': "Training...", 'price_change_pct': 0.0, 'trend_prob_up': 0.5}
         else:
@@ -211,19 +278,37 @@ def stock_detail(symbol):
 
         pred_data['pcr_data'] = pcr_data
         
+        # Enhanced Sentiment Processing
         news_texts = [n['text'] for n in raw_data.get('news', [])]
         reddit_texts = [p['title'] + " " + " ".join(p['comments']) for p in raw_data.get('reddit', [])]
         reddit_scores = [p['score'] for p in raw_data.get('reddit', [])]
-        
-        news_sent = sent_engine.analyze_batch(news_texts) if news_texts else 0.0
+        corp_texts = [c['title'] for c in raw_data.get('corporate', [])]
+
+        news_sent = sent_engine.analyze_batch(news_texts, is_news=True) if news_texts else 0.0
         reddit_sent = sent_engine.analyze_batch(reddit_texts, weights=reddit_scores) if reddit_texts else 0.0
-        
-        signal = compute_combined_signal(symbol, pred_data, news_sent, reddit_sent, macro_data, sector_data)
+        corp_sent = sent_engine.analyze_batch(corp_texts, is_corporate=True) if corp_texts else 0.0
+        total_sent = (news_sent * 0.3) + (reddit_sent * 0.2) + (corp_sent * 0.5)
+
+        sent_metadata = {
+            'total_score': total_sent,
+            'mentions': {'news': len(news_texts), 'reddit': len(reddit_texts), 'corp': len(corp_texts)}
+        }
+
+        # Unified Feed
+        unified_feed = []
+        for n in raw_data.get('news', []): unified_feed.append({'title': n['title'], 'link': n.get('link', '#'), 'date': n['date'], 'source': n['source'], 'type': 'News'})
+        for r in raw_data.get('reddit', []): unified_feed.append({'title': r['title'], 'link': f"https://www.reddit.com/r/{r['subreddit']}", 'date': 'Social', 'source': f"r/{r['subreddit']}", 'type': 'Social'})
+        for c in raw_data.get('corporate', []): unified_feed.append({'title': c['title'], 'link': '#', 'date': c['date'], 'source': 'NSE/BSE', 'type': 'Announcement'})
+
+        # Final Signal with Contextual Weighting
+        signal = compute_combined_signal(symbol, pred_data, sent_metadata, macro_data, sector_data, conv_data, meta_engine)
         
         render_params = {
-            'symbol': symbol, 'prediction': pred_data, 'pcr': pcr_data, 'macro': macro_data, 'sector': sector_data, 'signal': signal,
-            'sentiment': {'news': news_sent, 'reddit': reddit_sent, 'mentions': {'news': len(news_texts), 'reddit': len(reddit_texts)}},
-            'news': raw_data.get('news', []), 'chart_data': chart_data, 'app_name': "StockIntel"
+            'symbol': symbol, 'prediction': pred_data, 'pcr': pcr_data, 'conviction': conv_data,
+            'macro': macro_data, 'sector': sector_data, 'signal': signal,
+            'backtest': bt_data, 'unified_feed': unified_feed,
+            'sentiment': {'news': news_sent, 'reddit': reddit_sent, 'corporate': corp_sent, 'total': total_sent, 'mentions': sent_metadata['mentions']},
+            'chart_data': chart_data, 'app_name': "StockIntel"
         }
         if pred_data.get('predicted_price') != "Training...":
             analysis_cache[symbol] = (time.time(), render_params)
@@ -238,23 +323,6 @@ def api_chart(symbol):
     period = request.args.get('period', '3mo')
     chart_data = data_engine.get_chart_data(symbol, period=period)
     return jsonify(chart_data)
-
-@app.route('/sentiment/<symbol>')
-def sentiment_page(symbol):
-    if not symbol.endswith(".NS"): symbol += ".NS"
-    _, sent_engine = get_models()
-    raw_data = data_engine.get_all_raw_data(symbol) or {}
-    news_texts = [n['text'] for n in raw_data.get('news', [])]
-    reddit_texts = [p['title'] + " " + " ".join(p['comments']) for p in raw_data.get('reddit', [])]
-    news_sent = sent_engine.analyze_batch(news_texts) if news_texts else 0.0
-    reddit_sent = sent_engine.analyze_batch(reddit_texts) if reddit_texts else 0.0
-    return render_template('sentiment.html', symbol=symbol, news=raw_data.get('news', []), app_name="StockIntel",
-                           sentiment={'news': news_sent, 'reddit': reddit_sent, 'mentions': {'news': len(news_texts), 'reddit': len(reddit_texts)}})
-
-@app.route('/sector/<symbol>')
-def sector_page(symbol):
-    if not symbol.endswith(".NS"): symbol += ".NS"
-    return render_template('sector.html', symbol=symbol, sector=sector.get_sector_analysis(symbol) or {}, app_name="StockIntel")
 
 @app.route('/stock_search')
 def stock_search():

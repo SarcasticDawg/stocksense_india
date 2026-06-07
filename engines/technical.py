@@ -47,8 +47,8 @@ def add_technical_indicators(df):
     df['BB_Position'] = (df['Close'] - df['BB_Lower']) / (df['BB_Upper'] - df['BB_Lower'])
     
     # Moving Averages
-    df['MA50'] = df['Close'].rolling(window=50).mean()
-    df['MA200'] = df['Close'].rolling(window=200).mean()
+    df['MA50'] = df['Close'].rolling(window=50, min_periods=1).mean()
+    df['MA200'] = df['Close'].rolling(window=200, min_periods=1).mean()
     
     # Volume Change
     df['Vol_Change_Pct'] = df['Volume'].pct_change() * 100
@@ -60,9 +60,9 @@ def add_technical_indicators(df):
         df[f'Lag_Close_{lag}'] = df['Close'].shift(lag)
     
     # 2. Rolling Statistics
-    df['Roll_Mean_7'] = df['Close'].rolling(window=7).mean()
-    df['Roll_Mean_14'] = df['Close'].rolling(window=14).mean()
-    df['Roll_Std_30'] = df['Close'].rolling(window=30).std()
+    df['Roll_Mean_7'] = df['Close'].rolling(window=7, min_periods=1).mean()
+    df['Roll_Mean_14'] = df['Close'].rolling(window=14, min_periods=1).mean()
+    df['Roll_Std_30'] = df['Close'].rolling(window=30, min_periods=1).std()
     
     # 3. Price Momentum (ROC - Rate of Change)
     # (Current Price / Price n periods ago) - 1
@@ -71,7 +71,7 @@ def add_technical_indicators(df):
     
     # 4. Relative Volume (RVOL)
     # Current volume / 20-day average volume
-    df['MA20_Vol'] = df['Volume'].rolling(window=20).mean()
+    df['MA20_Vol'] = df['Volume'].rolling(window=20, min_periods=1).mean()
     df['RVOL'] = df['Volume'] / df['MA20_Vol']
     
     return df

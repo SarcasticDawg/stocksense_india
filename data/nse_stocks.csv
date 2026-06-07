@@ -28,7 +28,7 @@ INDUSINDBK,IndusInd Bank Limited,Banking
 INFY,Infosys Limited,IT
 JSWSTEEL,JSW Steel Limited,Metals & Mining
 KOTAKBANK,Kotak Mahindra Bank Limited,Banking
-LTIM,LTIMindtree Limited,IT
+LTM,LTIMindtree Limited,IT
 LT,Larsen & Toubro Limited,Construction
 M&M,Mahindra & Mahindra Limited,Auto
 MARUTI,Maruti Suzuki India Limited,Auto
@@ -42,7 +42,7 @@ SBIN,State Bank of India,Banking
 SUNPHARMA,Sun Pharmaceutical Industries Limited,Pharma
 TCS,Tata Consultancy Services Limited,IT
 TATACONSUM,Tata Consumer Products Limited,FMCG
-TATAMOTORS,Tata Motors Limited,Auto
+TMCV,Tata Motors Limited,Auto
 TATASTEEL,Tata Steel Limited,Metals & Mining
 TECHM,Tech Mahindra Limited,IT
 TITAN,Titan Company Limited,Consumer Durables
@@ -56,6 +56,6 @@ JUNIORBEES,Nippon India ETF Nifty Next 50 BeES,ETF
 LIQUIDBEES,Nippon India ETF Liquid BeES,ETF
 MON100,Motilal Oswal Nasdaq 100 ETF,ETF
 CPSEETF,CPSE ETF,ETF
-ICICINIFTY,ICICI Prudential Nifty 50 ETF,ETF
+NIFTYIETF,ICICI Prudential Nifty 50 ETF,ETF
 SETFNIF50,SBI Nifty 50 ETF,ETF
 HDFCNIFTY,HDFC Nifty 50 ETF,ETF

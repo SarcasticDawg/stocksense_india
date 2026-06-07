@@ -17,6 +17,35 @@ class SentimentAnalyzer:
         self.analyzer.lexicon.update(finance_lexicon)
         self.is_loaded = True
 
+    def classify_news_type(self, text):
+        """
+        Distinguishes between 'reporting' (past facts) and 'signal' (future outlook).
+        """
+        reporting_keywords = [
+            "rose", "fell", "gained", "lost", "closed at",
+            "ended", "finished", "today", "yesterday",
+            "in today's session", "on monday", "on tuesday",
+            "posts revenue", "reports profit", "quarterly results"
+        ]
+
+        forward_keywords = [
+            "will", "expects", "guides", "forecast", "outlook",
+            "plans to", "likely to", "may", "could", "next quarter",
+            "announces", "targets", "projects", "warns of",
+            "raises guidance", "cuts guidance", "capex", "expansion"
+        ]
+        
+        text_lower = text.lower()
+        reporting_score = sum(1 for k in reporting_keywords if k in text_lower)
+        forward_score = sum(1 for k in forward_keywords if k in text_lower)
+        
+        if forward_score > reporting_score:
+            return "signal"
+        elif reporting_score > forward_score:
+            return "reporting"
+        else:
+            return "neutral"
+
     def get_sentiment(self, text):
         """
         Returns sentiment score between -1 and 1.
@@ -32,39 +61,58 @@ class SentimentAnalyzer:
             print(f"Sentiment error: {e}")
             return 0.0
 
-    def analyze_batch(self, texts, weights=None):
+    def analyze_batch(self, texts, weights=None, is_corporate=False, is_news=False):
         """
         Analyzes a batch of texts.
-        If weights are provided (e.g., Reddit upvotes), it computes a weighted average.
-        weights should be a list of numerical values corresponding to each text.
+        is_corporate: applies a high-conviction multiplier.
+        is_news: applies tense-based filtering (signal vs reporting).
         """
         if not texts:
             return 0.0
             
         scores = [self.get_sentiment(t) for t in texts]
         
+        # Calculate dynamic weights if it's news
+        if is_news:
+            news_weights = []
+            for t in texts:
+                ntype = self.classify_news_type(t)
+                if ntype == "signal": news_weights.append(1.0)
+                elif ntype == "reporting": news_weights.append(0.2) # Heavily downweight
+                else: news_weights.append(0.5)
+            
+            if weights:
+                weights = [w * nw for w, nw in zip(weights, news_weights)]
+            else:
+                weights = news_weights
+
+        # Base multiplier for corporate announcements
+        conviction_mult = 2.5 if is_corporate else 1.0
+        
         if weights:
-            # Apply log(upvotes + 1) weighting as suggested
-            # Ensure weights are positive
             processed_weights = [np.log1p(max(0, w)) for w in weights]
             total_weight = sum(processed_weights)
+            if total_weight == 0: 
+                avg_score = np.mean(scores) * conviction_mult
+                return float(np.clip(avg_score, -1, 1))
             
-            if total_weight == 0:
-                return np.mean(scores)
-                
             weighted_scores = [s * w for s, w in zip(scores, processed_weights)]
-            return sum(weighted_scores) / total_weight
+            final_score = (sum(weighted_scores) / total_weight) * conviction_mult
+            return float(np.clip(final_score, -1, 1))
         else:
-            return np.mean(scores) if scores else 0.0
+            if not scores: return 0.0
+            avg_score = np.mean(scores) * conviction_mult
+            return float(np.clip(avg_score, -1, 1))
 
 if __name__ == "__main__":
     analyzer = SentimentAnalyzer()
     test_texts = [
         "The company reported a 20% increase in quarterly profit, beating analyst estimates.",
         "Stock prices plunged as the company announced a massive layoff and reduced guidance.",
-        "This stock is going to the moon! HODL diamond hands!",
-        "Bagholders are dumping their shares after the crash."
+        "Management will expand its footprint into new markets next quarter.",
+        "The index closed at 23400 today after gaining 1%."
     ]
     for t in test_texts:
-        print(f"Text: {t[:50]}...")
+        ntype = analyzer.classify_news_type(t)
+        print(f"Text: {t[:50]}... Type: {ntype}")
         print(f"Score: {analyzer.get_sentiment(t)}")
