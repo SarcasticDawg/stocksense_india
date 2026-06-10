@@ -7,8 +7,10 @@ on:
     # 8:30 AM IST is 3:00 AM UTC
     - cron: '0 3 * * 1-5'
   workflow_dispatch:
+
 jobs:
   run-batch:
+    # Only run on 7:00 PM IST schedule OR when triggered manually
     if: github.event.schedule == '30 13 * * 1-5' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
@@ -27,6 +29,7 @@ jobs:
         run: python batch_runner.py
 
   run-premarket:
+    # Only run on 8:30 AM IST schedule
     if: github.event.schedule == '0 3 * * 1-5'
     runs-on: ubuntu-latest
     steps:
