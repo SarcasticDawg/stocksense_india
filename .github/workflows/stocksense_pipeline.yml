@@ -4,8 +4,8 @@ on:
   schedule:
     # 7:00 PM IST is 1:30 PM UTC
     - cron: '30 13 * * 1-5'
-    # 8:30 AM IST is 3:00 AM UTC
-    - cron: '0 3 * * 1-5'
+    # Every 3 hours on weekdays
+    - cron: '0 */3 * * 1-5'
   workflow_dispatch:
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python 3.10
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -28,13 +28,13 @@ jobs:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
         run: python batch_runner.py
 
-  run-premarket:
-    # Only run on 8:30 AM IST schedule
-    if: github.event.schedule == '0 3 * * 1-5'
+  run-3hr:
+    # Only run on the 3-hour schedule
+    if: github.event.schedule == '0 */3 * * 1-5'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python 3.10
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -42,7 +42,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Run Premarket Runner
+      - name: Run 3-Hour Updater
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
-        run: python premarket_runner.py
+        run: python updates_3hr.py

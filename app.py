@@ -278,47 +278,43 @@ def stock_detail(symbol):
             # 1. Try to fetch nightly_dump
             mongo_col = get_mongodb_collection()
             latest_data = None
+            sentiment_data = None
             if mongo_col is not None:
                 latest_data = mongo_col.find_one(
                     {"symbol": symbol, "type": "nightly_dump"},
+                    sort=[("timestamp", -1)]
+                )
+                sentiment_data = mongo_col.find_one(
+                    {"symbol": symbol, "type": "sentiment_update"},
                     sort=[("timestamp", -1)]
                 )
             
             if latest_data:
                 print(f"Found pre-computed data for {symbol} in MongoDB.")
                 
-                # In NIGHT MODE, we only run sentiment fresh
-                # But to follow the request "only runs sentiment engine fresh on user search",
-                # we need to combine nightly data with fresh sentiment.
+                nightly = latest_data['data']
                 
-                with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                    future_raw = executor.submit(data_engine.get_all_raw_data, symbol)
-                    future_chart = executor.submit(data_engine.get_chart_data, symbol)
-                    
-                    raw_data = future_raw.result()
-                    chart_data = future_chart.result()
+                # Determine which sentiment data is fresher
+                if sentiment_data and sentiment_data['timestamp'] > latest_data['timestamp']:
+                    print(f"Using fresher 3-hour sentiment update for {symbol}.")
+                    sent_source = sentiment_data['data']
+                else:
+                    sent_source = nightly
                 
-                nightly = latest_data['data'] if latest_data['type'] == "nightly_dump" else latest_data['data']['nightly_data']
+                # Use cached data ONLY (No Live Scraping)
+                news_items = sent_source.get('raw_data_news', [])
+                social_items = sent_source.get('raw_data_social', [])
+                corp_items = sent_source.get('raw_data_corporate', [])
+                sent_metadata = sent_source.get('sentiment_metadata', {})
                 
-                # Fresh Sentiment
-                news_items = raw_data.get('news', [])
-                social_items = raw_data.get('social', [])
-                corp_items = raw_data.get('corporate', [])
+                # Since we don't scrape, we pull the chart data from the nightly dump too
+                chart_data = nightly.get('chart_data', {"labels": [], "prices": []})
 
+                # Re-calculate sentiment splits for display purposes
                 news_sent = sent_engine.analyze_batch(news_items, is_news=True)
                 social_sent = sent_engine.analyze_batch(social_items)
                 corp_sent = sent_engine.analyze_batch(corp_items, is_corporate=True)
-                total_sent = (news_sent * 0.3) + (social_sent * 0.2) + (corp_sent * 0.5)
-
-                sent_metadata = {
-                    'total_score': total_sent,
-                    'mentions': {
-                        'news': len(news_items), 
-                        'social': len(social_items), 
-                        'corp': len(corp_items),
-                        'total': len(news_items) + len(social_items) + len(corp_items)
-                    }
-                }
+                total_sent = sent_metadata.get('total_score', 0)
 
                 # Combined Signal with pre-computed parts
                 signal = compute_combined_signal(
@@ -343,7 +339,7 @@ def stock_detail(symbol):
                     'backtest': nightly['bt_data'], 'unified_feed': unified_feed,
                     'sent_data': {
                         'news': news_sent, 'social': social_sent, 'corporate': corp_sent, 'total': total_sent, 
-                        'mentions': sent_metadata['mentions']
+                        'mentions': sent_metadata.get('mentions', {})
                     },
                     'chart_data': chart_data, 'app_name': "StockIntel",
                     'mode': 'NIGHT (Cached)'
