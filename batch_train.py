@@ -19,7 +19,8 @@ def run_batch_training():
 
     # 1. Load stock list
     try:
-        stocks_df = pd.read_csv('data/nse_stocks.csv')
+        csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'nse_stocks.csv')
+        stocks_df = pd.read_csv(csv_path)
         symbols = stocks_df['Symbol'].tolist()
     except Exception as e:
         print(f"Error loading stock list: {e}")

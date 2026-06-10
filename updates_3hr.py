@@ -25,7 +25,8 @@ def run_3hr_update():
     print(f"--- [3-Hour Updater] Starting at {now_ist.strftime('%Y-%m-%d %H:%M:%S')} IST ---")
 
     try:
-        stocks_df = pd.read_csv('data/nse_stocks.csv')
+        csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'nse_stocks.csv')
+        stocks_df = pd.read_csv(csv_path)
         symbols = stocks_df['Symbol'].tolist()[:50]
     except Exception as e:
         print(f"Error loading stock list: {e}")

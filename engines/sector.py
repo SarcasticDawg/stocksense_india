@@ -14,7 +14,8 @@ def get_sector_analysis(symbol):
     """
     try:
         # 1. Load NSE Master List
-        df_stocks = pd.read_csv('data/nse_stocks.csv')
+        csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'nse_stocks.csv')
+        df_stocks = pd.read_csv(csv_path)
         
         # 2. Identify sector
         symbol_raw = symbol.replace(".NS", "")
@@ -76,7 +77,8 @@ def get_sector_analysis(symbol):
 
 def get_sector_heatmap():
     try:
-        df_stocks = pd.read_csv('data/nse_stocks.csv')
+        csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'nse_stocks.csv')
+        df_stocks = pd.read_csv(csv_path)
         sectors = df_stocks['Sector'].unique()
         heatmap = []
         for sector in sectors:

@@ -252,7 +252,8 @@ def home():
             else:
                 index_summary[name] = {"value": "N/A", "change": 0.0}
         try:
-            stocks_df = pd.read_csv('data/nse_stocks.csv')
+            csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'nse_stocks.csv')
+            stocks_df = pd.read_csv(csv_path)
             stock_list = stocks_df.sort_values(by='Symbol').to_dict('records')
         except:
             stock_list = []
