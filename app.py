@@ -69,10 +69,16 @@ def load_engines_task():
 
     # 2. Heavy Engine Loading
     try:
-        if _stock_predictor is None: _stock_predictor = predictor.StockPredictor()
         if _sentiment_analyzer is None: _sentiment_analyzer = sentiment.SentimentAnalyzer()
         if _meta_model is None: _meta_model = meta_model.MetaModel()
-        print("--- [Background] All Engines Ready. ---")
+        
+        mode = get_dashboard_mode()
+        if mode == "LIVE":
+            if _stock_predictor is None: _stock_predictor = predictor.StockPredictor()
+            print("--- [Background] All Engines (LIVE MODE) Ready. ---")
+        else:
+            print("--- [Background] Night Mode: Skipping heavy ML models to save memory. ---")
+            
     except Exception as e:
         print(f"--- [Background] Error loading models: {e} ---")
         
