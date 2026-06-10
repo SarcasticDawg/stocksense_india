@@ -16,24 +16,35 @@ def get_stock_pcr(symbol):
     try:
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
-            # The data is embedded in a JS initialization block
-            # pcrRatio: [0, 0, ..., 0.69]
-            match = re.search(r'pcrRatio:\s*\[([\d\.,]+)\]', response.text)
+            # New regex: handle optional spaces, quotes, and 'null' values
+            pattern = r'pcrRatio:\s*\[(.*?)\]'
+            match = re.search(pattern, response.text)
+            
             if match:
-                pcr_list = match.group(1).split(',')
-                latest_pcr = float(pcr_list[-1])
+                raw_list = match.group(1)
+                # Split and clean
+                items = [x.strip().replace("'", "").replace('"', "") for x in raw_list.split(',')]
                 
-                # Interpretation:
-                # High PCR (> 1.2) -> Bullish Support (Market makers bought underlying to hedge puts)
-                # Low PCR (< 0.7) -> Bearish Resistance (Market makers sold underlying to hedge calls)
-                sentiment = "Neutral"
-                if latest_pcr > 1.1: sentiment = "Bullish"
-                elif latest_pcr < 0.8: sentiment = "Bearish"
+                # Filter out 'null' and get the last valid number
+                valid_numbers = []
+                for item in items:
+                    if item.lower() != 'null' and item != '':
+                        try:
+                            valid_numbers.append(float(item))
+                        except:
+                            pass
                 
-                return {
-                    "pcr": latest_pcr,
-                    "sentiment": sentiment
-                }
+                if valid_numbers:
+                    latest_pcr = valid_numbers[-1]
+                    
+                    sentiment = "Neutral"
+                    if latest_pcr > 1.1: sentiment = "Bullish"
+                    elif latest_pcr < 0.8: sentiment = "Bearish"
+                    
+                    return {
+                        "pcr": latest_pcr,
+                        "sentiment": sentiment
+                    }
     except Exception as e:
         print(f"Error fetching PCR for {symbol}: {e}")
         
