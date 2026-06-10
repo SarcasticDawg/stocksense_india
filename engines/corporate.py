@@ -50,7 +50,7 @@ class CorporateIntelligence:
 
     def get_announcements(self, symbol):
         """
-        Fetches recent corporate announcements from Screener.in
+        Fetches recent corporate announcements from Screener.in with direct source links.
         """
         company_id = self.get_company_id(symbol)
         if not company_id:
@@ -65,16 +65,34 @@ class CorporateIntelligence:
                 items = []
                 # Announcements are in <li class="overflow-wrap-anywhere">
                 for li in soup.find_all('li', class_='overflow-wrap-anywhere'):
-                    text = li.get_text(strip=True)
-                    # Often contains date and title
-                    # Example: "05 Jun - Announcement under Regulation 30..."
-                    parts = text.split(' - ', 1)
-                    date = parts[0] if len(parts) > 1 else ""
-                    title = parts[1] if len(parts) > 1 else text
+                    link_tag = li.find('a')
+                    if not link_tag: continue
+                    
+                    href = link_tag.get('href', '')
+                    # Handle absolute vs relative links correctly
+                    if href.startswith('http'):
+                        link = href
+                    elif href.startswith('/'):
+                        link = "https://www.screener.in" + href
+                    else:
+                        link = '#'
+
+                    full_text = link_tag.get_text(strip=True)
+                    sub_div = li.find('div', class_='ink-600')
+                    sub_text = sub_div.get_text(strip=True) if sub_div else ""
+                    
+                    date = ""
+                    if ' - ' in sub_text:
+                        date, _ = sub_text.split(' - ', 1)
+                    
+                    # Cleanup title by removing the sub-text part
+                    title = full_text.replace(sub_text, '').strip()
+                    if not title: title = sub_text
                     
                     items.append({
-                        'date': date,
+                        'date': date or "Recent",
                         'title': title,
+                        'link': link,
                         'source': 'NSE/BSE Announcement'
                     })
                 return items
@@ -89,3 +107,4 @@ if __name__ == "__main__":
     ann = ci.get_announcements("TITAN")
     for a in ann[:5]:
         print(f"[{a['date']}] {a['title']}")
+        print(f"Link: {a['link']}\n")

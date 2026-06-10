@@ -9,9 +9,15 @@
 </div>
 
 <!-- Price Chart Section -->
-<div class="card chart-card" style="height: 400px; margin-bottom: 20px;">
+<div class="card chart-card" style="margin-bottom: 20px;">
     <div class="chart-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h3 style="margin: 0; border: none; padding: 0;">Price History</h3>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <h3 style="margin: 0; border: none; padding: 0;">Price History</h3>
+            <div class="chart-toggle">
+                <button id="btn-line" class="toggle-btn active" onclick="setChartMode('line')">Line</button>
+                <button id="btn-candle" class="toggle-btn" onclick="setChartMode('candle')">Candle</button>
+            </div>
+        </div>
         <div class="period-selector">
             <button class="period-btn" onclick="updateChartPeriod('{{ symbol }}', '1mo')">1M</button>
             <button class="period-btn active" onclick="updateChartPeriod('{{ symbol }}', '3mo')">3M</button>
@@ -20,12 +26,40 @@
             <button class="period-btn" onclick="updateChartPeriod('{{ symbol }}', '5y')">5Y</button>
         </div>
     </div>
-    <div style="height: 300px;">
+    <div id="price-chart-container" style="height: 450px; position: relative;">
         <canvas id="priceChart"></canvas>
+    </div>
+    <div id="rsi-chart-container" style="height: 150px; position: relative; margin-top: 15px; display: none;">
+        <canvas id="rsiChart"></canvas>
     </div>
 </div>
 
 <style>
+    .chart-toggle {
+        display: flex;
+        background: var(--bg-color);
+        padding: 4px;
+        border-radius: 20px;
+        border: 1px solid var(--border-color);
+    }
+    .toggle-btn {
+        background: transparent;
+        border: none;
+        color: var(--hold-color);
+        padding: 4px 12px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        border-radius: 16px;
+        transition: all 0.2s;
+        font-weight: 500;
+    }
+    .toggle-btn:hover {
+        color: var(--text-color);
+    }
+    .toggle-btn.active {
+        background: var(--accent-color);
+        color: white;
+    }
     .period-selector {
         display: flex;
         gap: 5px;
@@ -51,9 +85,16 @@
         background: var(--accent-color);
         color: white;
     }
+    .grid-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
 </style>
 
-<div class="dashboard-grid">
+<!-- Top Intelligence Row -->
+<div class="grid-3">
     <!-- Prediction Card -->
     <div class="card">
         <h3>Price Prediction</h3>
@@ -65,67 +106,63 @@
         <p class="prob">Directional Probability (5-day): {{ (prediction.trend_prob_up * 100)|round(1) }}%</p>
     </div>
 
-    <!-- Sentiment Card -->
+    <!-- Market Sentiment Card -->
     <div class="card">
-        <h3>Sentiment Score</h3>
+        <h3>Market Sentiment</h3>
+        {% if sent_data and sent_data.mentions.total > 0 or sent_data.mentions.news > 0 or sent_data.mentions.social > 0 or sent_data.mentions.corp > 0 %}
         <div class="sentiment-bar-container">
-            <p>Institutional ({{ sentiment.mentions.corp }} filings): <span class="{% if sentiment.corporate >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.corporate * 100)|round(1) }}%</span></p>
+            <p>Institutional ({{ sent_data.mentions.get('corp', 0) }}): <span class="{% if sent_data.get('corporate', 0) >= 0 %}pos{% else %}neg{% endif %}">{{ (sent_data.get('corporate', 0) * 100)|round(1) }}%</span></p>
             <div class="sentiment-bar">
-                <div class="fill" style="width: {{ (sentiment.corporate + 1) * 50 }}%;"></div>
+                <div class="fill" style="width: {{ (sent_data.get('corporate', 0) + 1) * 50 }}%;"></div>
             </div>
 
-            <p>News ({{ sentiment.mentions.news }} mentions): <span class="{% if sentiment.news >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.news * 100)|round(1) }}%</span></p>
+            <p>Professional ({{ sent_data.mentions.get('news', 0) }}): <span class="{% if sent_data.get('news', 0) >= 0 %}pos{% else %}neg{% endif %}">{{ (sent_data.get('news', 0) * 100)|round(1) }}%</span></p>
             <div class="sentiment-bar">
-                <div class="fill" style="width: {{ (sentiment.news + 1) * 50 }}%;"></div>
+                <div class="fill" style="width: {{ (sent_data.get('news', 0) + 1) * 50 }}%;"></div>
             </div>
             
-            <p>Social ({{ sentiment.mentions.reddit }} mentions): <span class="{% if sentiment.reddit >= 0 %}pos{% else %}neg{% endif %}">{{ (sentiment.reddit * 100)|round(1) }}%</span></p>
+            <p>Social ({{ sent_data.mentions.get('social', 0) }}): <span class="{% if sent_data.get('social', 0) >= 0 %}pos{% else %}neg{% endif %}">{{ (sent_data.get('social', 0) * 100)|round(1) }}%</span></p>
             <div class="sentiment-bar">
-                <div class="fill" style="width: {{ (sentiment.reddit + 1) * 50 }}%;"></div>
+                <div class="fill" style="width: {{ (sent_data.get('social', 0) + 1) * 50 }}%;"></div>
             </div>
         </div>
-    </div>
-
-    <!-- Corporate Intelligence Card -->
-    <div class="card">
-        <h3>Corporate Intelligence</h3>
-        {% if corporate %}
-        <ul style="list-style: none; padding: 0; font-size: 0.85rem;">
-            {% for item in corporate[:5] %}
-            <li style="margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color);">
-                <span class="date" style="color: var(--hold-color); font-size: 0.7rem;">{{ item.date }}</span>
-                <p style="margin: 3px 0; font-weight: 500;">{{ item.title }}</p>
-            </li>
-            {% endfor %}
-        </ul>
         {% else %}
-        <p>No recent filings found.</p>
+        <div style="text-align: center; padding: 20px; color: var(--hold-color);">
+            <p>No recent news or social buzz found for this symbol.</p>
+            <small>Contextual Weighting B (Technical Only) Active</small>
+        </div>
         {% endif %}
     </div>
 
-    <!-- Sector Card -->
+    <!-- Sector Intelligence Card -->
     <div class="card">
         <h3>Sector: {{ sector.sector }}</h3>
-        <table>
+        {% if sector.peers %}
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
             <thead>
-                <tr>
-                    <th>Symbol</th>
-                    <th>1M Return</th>
-                    <th>RSI</th>
+                <tr style="text-align: left; border-bottom: 1px solid var(--border-color);">
+                    <th style="padding-bottom: 5px;">Symbol</th>
+                    <th style="padding-bottom: 5px;">1M Ret</th>
+                    <th style="padding-bottom: 5px;">RSI</th>
                 </tr>
             </thead>
             <tbody>
                 {% for peer in sector.peers[:5] %}
                 <tr {% if peer.symbol in symbol %}class="highlight"{% endif %}>
-                    <td>{{ peer.symbol }}</td>
+                    <td style="padding: 6px 0;">{{ peer.symbol }}</td>
                     <td class="{% if peer.return_1m >= 0 %}pos{% else %}neg{% endif %}">{{ peer.return_1m }}%</td>
                     <td>{{ peer.rsi }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        {% else %}
+        <p>No industry peers found.</p>
+        {% endif %}
     </div>
+</div>
 
+<div class="dashboard-grid">
     <!-- Smart Money Card -->
     <div class="card">
         <h3>Smart Money Signals</h3>
@@ -176,7 +213,6 @@
             {% if macro.India_VIX %}
             <p>India VIX: <strong>{{ macro.India_VIX.latest }}</strong> <span class="{% if macro.India_VIX.change_pct <= 0 %}pos{% else %}neg{% endif %}">({{ macro.India_VIX.change_pct }}%)</span></p>
             {% endif %}
-            
             {% if macro.SP500 %}
             <p>S&P 500: <span class="{% if macro.SP500.change_pct >= 0 %}pos{% else %}neg{% endif %}">{{ macro.SP500.change_pct }}%</span></p>
             {% endif %}
@@ -200,18 +236,13 @@
                     <strong>{{ backtest.total_trades }}</strong>
                 </li>
                 <li style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span>Avg. Signal Return:</span>
-                    <strong class="{% if backtest.avg_return_per_trade >= 0 %}pos{% else %}neg{% endif %}">
-                        {{ backtest.avg_return_per_trade }}%
-                    </strong>
-                </li>
-                <li style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                     <span>Cumulative Accuracy Return:</span>
                     <strong class="{% if backtest.cumulative_return >= 0 %}pos{% else %}neg{% endif %}">
                         {{ backtest.cumulative_return }}%
                     </strong>
                 </li>
             </ul>
+            <p style="font-size: 0.7rem; color: var(--hold-color); margin-top: 10px;">* Simulated holding for 5 sessions per signal.</p>
         </div>
         {% else %}
         <p>Insufficient history for backtesting.</p>
@@ -227,7 +258,7 @@
             <small style="color: var(--accent-color); font-size: 0.75rem; display: block;">Sentiment Mode: {{ signal.sent_mode }}</small>
         </div>
     </div>
-    <div class="breakdown-grid">
+    <div class="breakdown-grid" style="margin-top: 20px;">
         <div class="component">
             <p>AI Predictor</p>
             <div class="score-dot" style="background: hsl({{ (signal.breakdown.price + 1) * 60 }}, 70%, 50%)"></div>
@@ -242,6 +273,11 @@
             <p>Sentiment</p>
             <div class="score-dot" style="background: hsl({{ (signal.breakdown.sentiment + 1) * 60 }}, 70%, 50%)"></div>
             <span>{{ signal.breakdown.sentiment }}</span>
+        </div>
+        <div class="component">
+            <p>Conviction</p>
+            <div class="score-dot" style="background: hsl({{ (signal.breakdown.conviction + 1) * 60 }}, 70%, 50%)"></div>
+            <span>{{ signal.breakdown.conviction }}</span>
         </div>
         <div class="component">
             <p>Sector Rank</p>
@@ -270,12 +306,27 @@
     {% endif %}
 </div>
 
-<script src="{{ url_for('static', filename='charts.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/luxon@2.3.1/build/global/luxon.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0/dist/chartjs-adapter-luxon.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.1/dist/chartjs-chart-financial.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<script src="{{ url_for('static', filename='charts.js') }}?v=6.0.0"></script>
 <script>
-    const ctx = document.getElementById('priceChart').getContext('2d');
     const labels = {{ chart_data.labels | tojson }};
     const prices = {{ chart_data.prices | tojson }};
+    const ohlc = {{ chart_data.ohlc | tojson }};
     const historicalSignals = {{ (backtest.signals if backtest else []) | tojson }};
-    renderPriceChart(ctx, labels, prices, '3mo', historicalSignals);
+    
+    // Store globally for toggle access
+    window.chartData = {
+        labels: labels,
+        prices: prices,
+        ohlc: ohlc,
+        signals: historicalSignals,
+        period: '3mo'
+    };
+
+    setChartMode('line'); // Initialize
 </script>
 {% endblock %}

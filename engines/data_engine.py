@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import sys
 import os
+import concurrent.futures
 
 # Add the current directory and parent directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -10,6 +11,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import scraper
 import macro
+import corporate
 
 def get_stock_data(symbol, period="1y"):
     """
@@ -33,15 +35,26 @@ def get_chart_data(symbol, period="3mo"):
     Returns historical price points formatted for Chart.js.
     """
     df = get_stock_data(symbol, period=period)
-    if df is None: return {"labels": [], "prices": []}
+    if df is None: return {"labels": [], "prices": [], "ohlc": []}
     
     # Format labels (Dates) and Prices (Close)
     labels = df.index.strftime('%Y-%m-%d').tolist()
     prices = df['Close'].round(2).tolist()
     
+    ohlc = []
+    for i, row in df.iterrows():
+        ohlc.append({
+            'x': i.strftime('%Y-%m-%d'),
+            'o': round(float(row['Open']), 2),
+            'h': round(float(row['High']), 2),
+            'l': round(float(row['Low']), 2),
+            'c': round(float(row['Close']), 2)
+        })
+        
     return {
         "labels": labels,
         "prices": prices,
+        "ohlc": ohlc,
         "period": period
     }
 
@@ -66,7 +79,7 @@ def get_stock_info(symbol):
     Looks up stock info from the NSE master list.
     """
     try:
-        df = pd.read_csv('data/nse_stocks.csv')
+        df = pd.read_csv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'nse_stocks.csv'))
         stock_info = df[df['Symbol'] == symbol.replace(".NS", "")]
         if not stock_info.empty:
             return stock_info.iloc[0].to_dict()
@@ -76,38 +89,37 @@ def get_stock_info(symbol):
 
 def get_all_raw_data(symbol):
     """
-    Aggregates all raw data for a stock as per Week 1 requirements.
+    Parallel fetch for all stock-related data.
     """
-    print(f"--- Aggregating data for {symbol} ---")
+    clean_sym = symbol.replace(".NS", "")
+    print(f"--- Parallel fetching all data for {symbol} ---")
     
-    # 1. Stock Price Data
-    price_data = get_stock_data(symbol)
-    
-    # 2. NSE Master List Info
-    info = get_stock_info(symbol)
-    
-    # 3 & 4. News and Reddit
-    scraped = scraper.get_all_scraped_data(symbol.replace(".NS", ""))
-    
-    # 5. Macro Data
-    macros = macro.get_macro_data()
-    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        f_price = executor.submit(get_stock_data, symbol)
+        f_scraped = executor.submit(scraper.get_all_scraped_data, clean_sym)
+        f_macro = executor.submit(macro.get_macro_data)
+        f_corp = executor.submit(corporate.CorporateIntelligence().get_announcements, clean_sym)
+        
+        price_data = f_price.result()
+        scraped = f_scraped.result()
+        macros = f_macro.result()
+        corp_data = f_corp.result()
+
     return {
         'symbol': symbol,
-        'info': info,
+        'info': get_stock_info(symbol),
         'price_data': price_data,
         'news': scraped['news'],
-        'reddit': scraped['reddit'],
-        'macro': macros
+        'social': scraped['social'], # Merged Reddit + Screener
+        'macro': macros,
+        'corporate': corp_data
     }
 
 if __name__ == "__main__":
-    # Test all-in-one aggregation
-    data = get_all_raw_data("TCS")
+    # Test parallel fetch
+    data = get_all_raw_data("TITAN")
     print("\nData Summary:")
     print(f"Symbol: {data['symbol']}")
-    print(f"Sector: {data['info']['Sector'] if data['info'] else 'Unknown'}")
-    print(f"Price Records: {len(data['price_data']) if data['price_data'] is not None else 0}")
+    print(f"Corporate Announcements: {len(data['corporate'])}")
     print(f"News Articles: {len(data['news'])}")
-    print(f"Reddit Posts: {len(data['reddit'])}")
-    print(f"Macro Signals: {list(data['macro'].keys())}")
+    print(f"Social Posts: {len(data['social'])}")

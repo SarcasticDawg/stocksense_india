@@ -25,14 +25,18 @@ class SentimentAnalyzer:
             "rose", "fell", "gained", "lost", "closed at",
             "ended", "finished", "today", "yesterday",
             "in today's session", "on monday", "on tuesday",
-            "posts revenue", "reports profit", "quarterly results"
+            "posts revenue", "reports profit", "quarterly results",
+            "declines", "surges", "jumps", "plunges", "crashes", "hits", "touches",
+            "q1", "q2", "q3", "q4", "quarter", "fy24", "fy25", "fy26", "profit drops",
+            "profit rises", "sales", "net profit", "shares fall", "shares rise"
         ]
 
         forward_keywords = [
             "will", "expects", "guides", "forecast", "outlook",
             "plans to", "likely to", "may", "could", "next quarter",
             "announces", "targets", "projects", "warns of",
-            "raises guidance", "cuts guidance", "capex", "expansion"
+            "raises guidance", "cuts guidance", "capex", "expansion",
+            "ahead of", "upcoming", "launch", "partnership", "acquisition"
         ]
         
         text_lower = text.lower()
@@ -41,8 +45,8 @@ class SentimentAnalyzer:
         
         if forward_score > reporting_score:
             return "signal"
-        elif reporting_score > forward_score:
-            return "reporting"
+        elif reporting_score > 0 and reporting_score >= forward_score:
+            return "reporting" # More aggressive reporting catch
         else:
             return "neutral"
 
@@ -70,16 +74,25 @@ class SentimentAnalyzer:
         if not texts:
             return 0.0
             
-        scores = [self.get_sentiment(t) for t in texts]
+        # Handle both list of strings and list of dicts (from v4 scraper)
+        text_strings = []
+        for t in texts:
+            if isinstance(t, dict):
+                text_strings.append(t.get('title', '') + " " + t.get('text', ''))
+            else:
+                text_strings.append(str(t))
+                
+        scores = [self.get_sentiment(t) for t in text_strings]
         
         # Calculate dynamic weights if it's news
         if is_news:
             news_weights = []
-            for t in texts:
-                ntype = self.classify_news_type(t)
+            for text_str in text_strings:
+                ntype = self.classify_news_type(text_str)
                 if ntype == "signal": news_weights.append(1.0)
                 elif ntype == "reporting": news_weights.append(0.2) # Heavily downweight
                 else: news_weights.append(0.5)
+
             
             if weights:
                 weights = [w * nw for w, nw in zip(weights, news_weights)]

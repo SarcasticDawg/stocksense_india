@@ -8,6 +8,9 @@ import threading
 import pandas as pd
 import gc
 import traceback
+import pytz
+from datetime import datetime
+from pymongo import MongoClient
 
 # Add engines to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'engines'))
@@ -24,6 +27,32 @@ import backtester
 import conviction
 
 app = Flask(__name__)
+
+# MongoDB Setup
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
+client = MongoClient(MONGODB_URI)
+db = client.stocksense
+collection = db.stocksense_results
+
+def get_dashboard_mode():
+    """
+    Detects mode based on IST time.
+    LIVE: 9:15 AM to 7:00 PM IST, Weekdays
+    NIGHT: 7:00 PM to 9:15 AM IST, Weekdays + Weekends
+    """
+    IST = pytz.timezone('Asia/Kolkata')
+    now = datetime.now(IST)
+    weekday = now.weekday() # 0 is Monday, 6 is Sunday
+    current_time = now.time()
+    
+    start_live = datetime.strptime("09:15", "%H:%M").time()
+    end_live = datetime.strptime("19:00", "%H:%M").time()
+    
+    if 0 <= weekday <= 4: # Weekday
+        if start_live <= current_time <= end_live:
+            return "LIVE"
+    
+    return "NIGHT"
 
 # Global state
 _stock_predictor = None
@@ -123,22 +152,12 @@ def compute_combined_signal(symbol, pred_data, sentiment_metadata, macro_data, s
     elif mentions.get('news', 0) >= 3:
         sent_weight = 0.10
         sent_mode = "Partial (News)"
-    elif mentions.get('reddit', 0) >= 5:
+    elif mentions.get('social', 0) >= 3: # Updated for Screener only
         sent_weight = 0.05
         sent_mode = "Minimal (Social)"
     else:
         sent_weight = 0.0
         sent_mode = "None (Insufficient)"
-
-    # 3. F&O Data Availability Check
-    has_fo = False
-    inst = macro_data.get('INSTITUTIONAL', {})
-    if isinstance(inst, dict):
-        # Check if FII Futures or Options views are present (not 'Neutral' or empty)
-        f_view = inst.get('fii_future', {}).get('view', 'Neutral')
-        o_view = inst.get('fii_option', {}).get('view', 'Neutral')
-        if f_view != 'Neutral' or o_view != 'Neutral' or pcr_val != 1.0:
-            has_fo = True
 
     current_features = {
         'ai_price': float(ai_score),
@@ -150,24 +169,16 @@ def compute_combined_signal(symbol, pred_data, sentiment_metadata, macro_data, s
         'regime': float(regime_val)
     }
 
-    # 4. Compute Total Score
+    # 3. Compute Total Score
     if USE_LEGACY_WEIGHTS or meta_engine.model is None:
-        # Redistribution Logic for Manual Weights
-        # Baseline: AI (0.30), Sentiment (0.20), Inst (0.20), Conv (0.15), Sect (0.15)
-        # PCR is normally 15% of the 20% Inst slice, but here we treat it as 0.15 of total in legacy.
-        
-        # Initial target weights
         w_ai, w_sent, w_inst, w_conv, w_sect = 0.30, sent_weight, 0.20, 0.15, 0.15
         
-        # If no F&O data, redistribute PCR weight (part of w_inst and w_ai)
+        # Non-F&O Fallback
+        has_fo = mentions.get('corp', 0) > 0 or pcr_val != 1.0 
         if not has_fo:
-            # Shift weight from F&O components to Cash Flow and AI
-            w_inst += 0.05 # Increase Cash Flow importance
-            w_ai += 0.10   # Increase AI importance
-            # We skip PCR calculation in total_score below by effectively setting it to 0 or 
-            # reducing the institutional slice to just Cash.
-        
-        # Normalize weights to ensure sum = 1.0
+            w_inst += 0.05
+            w_ai += 0.10
+            
         total_w = w_ai + w_sent + w_inst + w_conv + w_sect
         w_ai /= total_w
         w_sent /= total_w
@@ -183,7 +194,6 @@ def compute_combined_signal(symbol, pred_data, sentiment_metadata, macro_data, s
             (current_features['sector'] * w_sect)
         )
         method = "Contextual Manual Weights"
-        if not has_fo: method += " (Non-F&O Fallback)"
     else:
         total_score = meta_engine.predict(current_features)
         method = "Machine-Learned Ensemble"
@@ -239,6 +249,86 @@ def home():
 def stock_detail(symbol):
     try:
         if not symbol.endswith(".NS"): symbol += ".NS"
+        
+        mode = get_dashboard_mode()
+        print(f"--- [Dashboard] Mode: {mode} ---")
+        
+        pred_engine, sent_engine, meta_engine = get_models()
+
+        if mode == "NIGHT":
+            # 1. Try to fetch morning_prediction (freshest) or nightly_dump
+            latest_data = collection.find_one(
+                {"symbol": symbol, "type": {"$in": ["morning_prediction", "nightly_dump"]}},
+                sort=[("timestamp", -1)]
+            )
+            
+            if latest_data:
+                print(f"Found pre-computed data for {symbol} in MongoDB.")
+                
+                # In NIGHT MODE, we only run sentiment fresh
+                # But to follow the request "only runs sentiment engine fresh on user search",
+                # we need to combine nightly data with fresh sentiment.
+                
+                with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                    future_raw = executor.submit(data_engine.get_all_raw_data, symbol)
+                    future_chart = executor.submit(data_engine.get_chart_data, symbol)
+                    
+                    raw_data = future_raw.result()
+                    chart_data = future_chart.result()
+                
+                nightly = latest_data['data'] if latest_data['type'] == "nightly_dump" else latest_data['data']['nightly_data']
+                
+                # Fresh Sentiment
+                news_items = raw_data.get('news', [])
+                social_items = raw_data.get('social', [])
+                corp_items = raw_data.get('corporate', [])
+
+                news_sent = sent_engine.analyze_batch(news_items, is_news=True)
+                social_sent = sent_engine.analyze_batch(social_items)
+                corp_sent = sent_engine.analyze_batch(corp_items, is_corporate=True)
+                total_sent = (news_sent * 0.3) + (social_sent * 0.2) + (corp_sent * 0.5)
+
+                sent_metadata = {
+                    'total_score': total_sent,
+                    'mentions': {
+                        'news': len(news_items), 
+                        'social': len(social_items), 
+                        'corp': len(corp_items),
+                        'total': len(news_items) + len(social_items) + len(corp_items)
+                    }
+                }
+
+                # Combined Signal with pre-computed parts
+                signal = compute_combined_signal(
+                    symbol, 
+                    nightly['pred_data'], 
+                    sent_metadata, 
+                    nightly['macro_data'], 
+                    nightly['sector_data'], 
+                    nightly['conv_data'], 
+                    meta_engine
+                )
+                
+                # Unified Feed
+                unified_feed = []
+                for n in news_items: unified_feed.append({'title': n['title'], 'link': n.get('link', '#'), 'date': n['date'], 'source': n['source'], 'type': 'News'})
+                for s in social_items: unified_feed.append({'title': s['title'], 'link': s.get('link', '#'), 'date': s['date'], 'source': s['source'], 'type': 'Social'})
+                for c in corp_items: unified_feed.append({'title': c['title'], 'link': c.get('link', '#'), 'date': c['date'], 'source': 'NSE/BSE', 'type': 'Announcement'})
+
+                render_params = {
+                    'symbol': symbol, 'prediction': nightly['pred_data'], 'pcr': nightly['pcr_data'], 'conviction': nightly['conv_data'],
+                    'macro': nightly['macro_data'], 'sector': nightly['sector_data'], 'signal': signal,
+                    'backtest': nightly['bt_data'], 'unified_feed': unified_feed,
+                    'sent_data': {
+                        'news': news_sent, 'social': social_sent, 'corporate': corp_sent, 'total': total_sent, 
+                        'mentions': sent_metadata['mentions']
+                    },
+                    'chart_data': chart_data, 'app_name': "StockIntel",
+                    'mode': 'NIGHT (Cached)'
+                }
+                return render_template('stock.html', **render_params)
+
+        # Fallback to LIVE MODE (on-demand fresh engines)
         if symbol in analysis_cache:
             ts, data = analysis_cache[symbol]
             if time.time() - ts < 1800: return render_template('stock.html', **data)
@@ -278,38 +368,48 @@ def stock_detail(symbol):
 
         pred_data['pcr_data'] = pcr_data
         
-        # Enhanced Sentiment Processing
-        news_texts = [n['text'] for n in raw_data.get('news', [])]
-        reddit_texts = [p['title'] + " " + " ".join(p['comments']) for p in raw_data.get('reddit', [])]
-        reddit_scores = [p['score'] for p in raw_data.get('reddit', [])]
-        corp_texts = [c['title'] for c in raw_data.get('corporate', [])]
+        # --- Advanced Sentiment Engine v4.0 ---
+        news_items = raw_data.get('news', [])
+        social_items = raw_data.get('social', [])
+        corp_items = raw_data.get('corporate', [])
 
-        news_sent = sent_engine.analyze_batch(news_texts, is_news=True) if news_texts else 0.0
-        reddit_sent = sent_engine.analyze_batch(reddit_texts, weights=reddit_scores) if reddit_texts else 0.0
-        corp_sent = sent_engine.analyze_batch(corp_texts, is_corporate=True) if corp_texts else 0.0
-        total_sent = (news_sent * 0.3) + (reddit_sent * 0.2) + (corp_sent * 0.5)
+        news_sent = sent_engine.analyze_batch(news_items, is_news=True)
+        social_sent = sent_engine.analyze_batch(social_items)
+        corp_sent = sent_engine.analyze_batch(corp_items, is_corporate=True)
+        
+        # Blended Sentiment with official source dominance
+        total_sent = (news_sent * 0.3) + (social_sent * 0.2) + (corp_sent * 0.5)
 
         sent_metadata = {
             'total_score': total_sent,
-            'mentions': {'news': len(news_texts), 'reddit': len(reddit_texts), 'corp': len(corp_texts)}
+            'mentions': {
+                'news': len(news_items), 
+                'social': len(social_items), 
+                'corp': len(corp_items),
+                'total': len(news_items) + len(social_items) + len(corp_items)
+            }
         }
 
         # Unified Feed
         unified_feed = []
-        for n in raw_data.get('news', []): unified_feed.append({'title': n['title'], 'link': n.get('link', '#'), 'date': n['date'], 'source': n['source'], 'type': 'News'})
-        for r in raw_data.get('reddit', []): unified_feed.append({'title': r['title'], 'link': f"https://www.reddit.com/r/{r['subreddit']}", 'date': 'Social', 'source': f"r/{r['subreddit']}", 'type': 'Social'})
-        for c in raw_data.get('corporate', []): unified_feed.append({'title': c['title'], 'link': '#', 'date': c['date'], 'source': 'NSE/BSE', 'type': 'Announcement'})
+        for n in news_items: unified_feed.append({'title': n['title'], 'link': n.get('link', '#'), 'date': n['date'], 'source': n['source'], 'type': 'News'})
+        for s in social_items: unified_feed.append({'title': s['title'], 'link': s.get('link', '#'), 'date': s['date'], 'source': s['source'], 'type': 'Social'})
+        for c in corp_items: unified_feed.append({'title': c['title'], 'link': c.get('link', '#'), 'date': c['date'], 'source': 'NSE/BSE', 'type': 'Announcement'})
 
-        # Final Signal with Contextual Weighting
+        # Final Signal
         signal = compute_combined_signal(symbol, pred_data, sent_metadata, macro_data, sector_data, conv_data, meta_engine)
         
         render_params = {
             'symbol': symbol, 'prediction': pred_data, 'pcr': pcr_data, 'conviction': conv_data,
             'macro': macro_data, 'sector': sector_data, 'signal': signal,
             'backtest': bt_data, 'unified_feed': unified_feed,
-            'sentiment': {'news': news_sent, 'reddit': reddit_sent, 'corporate': corp_sent, 'total': total_sent, 'mentions': sent_metadata['mentions']},
+            'sent_data': {
+                'news': news_sent, 'social': social_sent, 'corporate': corp_sent, 'total': total_sent, 
+                'mentions': sent_metadata['mentions']
+            },
             'chart_data': chart_data, 'app_name': "StockIntel"
         }
+        # Clear cache for this stock if it has old structure
         if pred_data.get('predicted_price') != "Training...":
             analysis_cache[symbol] = (time.time(), render_params)
         return render_template('stock.html', **render_params)
