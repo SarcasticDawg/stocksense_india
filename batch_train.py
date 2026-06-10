@@ -51,13 +51,18 @@ def run_batch_training():
     print("\n--- [Meta-Model] Finalizing Weight Blending ---")
     # If cache exists, try to refresh meta-model
     if os.path.exists(meta.cache_path):
-        df = pd.read_csv(meta.cache_path)
-        if 'outcome' in df.columns and df['outcome'].notnull().sum() > 10:
-            features = df[['ai_price', 'sentiment', 'inst_flow', 'pcr', 'sector', 'regime']]
-            outcomes = df['outcome']
-            meta.train(features, outcomes)
-        else:
-            print("Notice: Meta-model needs more historical outcome data to train. Using manual defaults.")
+        try:
+            # Handle potential corruption (e.g. inconsistent columns) by ignoring bad lines
+            df = pd.read_csv(meta.cache_path, on_bad_lines='skip')
+            if 'outcome' in df.columns and df['outcome'].notnull().sum() > 10:
+                features = df[['ai_price', 'sentiment', 'inst_flow', 'pcr', 'sector', 'regime']]
+                outcomes = df['outcome']
+                meta.train(features, outcomes)
+            else:
+                print("Notice: Meta-model needs more historical outcome data to train. Using manual defaults.")
+        except Exception as e:
+            print(f"Warning: Could not read feature cache for meta-model training. It may be corrupted. Error: {e}")
+            print("Notice: Meta-model training skipped. Will try again on next run.")
 
     print("\n====================================================")
     print(f"Batch Training Complete at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
