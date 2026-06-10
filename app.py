@@ -225,6 +225,11 @@ def compute_combined_signal(symbol, pred_data, sentiment_metadata, macro_data, s
 
 analysis_cache = {}
 
+def get_mongodb_collection():
+    """Helper to safely get the MongoDB collection, even if loaded late."""
+    global _mongodb_collection
+    return _mongodb_collection
+
 @app.route('/')
 def home():
     try:
@@ -262,10 +267,13 @@ def stock_detail(symbol):
 
         if mode == "NIGHT":
             # 1. Try to fetch morning_prediction (freshest) or nightly_dump
-            latest_data = collection.find_one(
-                {"symbol": symbol, "type": {"$in": ["morning_prediction", "nightly_dump"]}},
-                sort=[("timestamp", -1)]
-            )
+            mongo_col = get_mongodb_collection()
+            latest_data = None
+            if mongo_col is not None:
+                latest_data = mongo_col.find_one(
+                    {"symbol": symbol, "type": {"$in": ["morning_prediction", "nightly_dump"]}},
+                    sort=[("timestamp", -1)]
+                )
             
             if latest_data:
                 print(f"Found pre-computed data for {symbol} in MongoDB.")
