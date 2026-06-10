@@ -89,6 +89,7 @@ def run_batch():
 
     ai_predictor = predictor.StockPredictor()
     sent_analyzer = sentiment.SentimentAnalyzer()
+    retry_queue = []
 
     for sym in symbols:
         symbol = f"{sym}.NS"
@@ -110,9 +111,18 @@ def run_batch():
             chart_data = data_engine.get_chart_data(symbol)
             bt_data = backtester.StrategyBacktester().run_backtest(symbol)
             
-            # Predict
+            # Prediction
             pred_data = ai_predictor.get_prediction(symbol)
             
+            # Monitor for failures to retry later
+            if pcr_data is None or conv_data is None:
+                retry_queue.append({
+                    'symbol': symbol,
+                    'clean_sym': sym,
+                    'pcr_missing': pcr_data is None,
+                    'conv_missing': conv_data is None
+                })
+
             # Prepare Sentiment Metadata
             news_texts = [n['text'] for n in raw_data['news']]
             social_texts = [s['text'] for s in raw_data['social']]
@@ -133,9 +143,6 @@ def run_batch():
                 'mentions': mentions
             }
 
-            # We don't call compute_combined_signal here because app.py will do it,
-            # but we save all the raw components needed for it.
-            
             result_doc = {
                 "symbol": symbol,
                 "timestamp": now_ist.isoformat(),
@@ -159,6 +166,35 @@ def run_batch():
             
         except Exception as e:
             print(f"Error processing {symbol}: {e}")
+
+    # 3. Self-Healing Retry Loop
+    if retry_queue:
+        print(f"\n--- [Batch Runner] Healing {len(retry_queue)} stocks with missing data... ---")
+        time.sleep(30) # Cool down period to avoid IP blocks
+        
+        for item in retry_queue:
+            symbol = item['symbol']
+            try:
+                updates = {}
+                if item['pcr_missing']:
+                    pcr = fno.get_stock_pcr(symbol)
+                    if pcr: 
+                        updates["data.pcr_data"] = pcr
+                        print(f"Healed PCR for {symbol}")
+                
+                if item['conv_missing']:
+                    conv = conviction.get_delivery_data(symbol)
+                    if conv: 
+                        updates["data.conv_data"] = conv
+                        print(f"Healed Delivery for {symbol}")
+                
+                if updates:
+                    collection.update_one(
+                        {"symbol": symbol, "type": "nightly_dump", "timestamp": now_ist.isoformat()},
+                        {"$set": updates}
+                    )
+            except Exception as e:
+                print(f"Retry failure for {symbol}: {e}")
 
     print("--- [Batch Runner] Completed ---")
 
