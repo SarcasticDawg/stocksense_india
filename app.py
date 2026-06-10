@@ -265,6 +265,9 @@ def stock_detail(symbol):
         
         pred_engine, sent_engine, meta_engine = get_models()
 
+        if pred_engine is None or sent_engine is None or meta_engine is None:
+            return render_template('error.html', message="System is still warming up. Models are loading in the background. Please refresh in 30 seconds.")
+
         if mode == "NIGHT":
             # 1. Try to fetch morning_prediction (freshest) or nightly_dump
             mongo_col = get_mongodb_collection()
@@ -340,6 +343,8 @@ def stock_detail(symbol):
                     'mode': 'NIGHT (Cached)'
                 }
                 return render_template('stock.html', **render_params)
+            else:
+                print(f"--- [Dashboard] No MongoDB data found for {symbol}. Falling back to LIVE MODE. ---")
 
         # Fallback to LIVE MODE (on-demand fresh engines)
         if symbol in analysis_cache:
