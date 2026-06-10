@@ -271,8 +271,11 @@ def stock_detail(symbol):
         
         pred_engine, sent_engine, meta_engine = get_models()
 
-        if pred_engine is None or sent_engine is None or meta_engine is None:
+        if sent_engine is None or meta_engine is None:
             return render_template('error.html', message="System is still warming up. Models are loading in the background. Please refresh in 30 seconds.")
+
+        if mode == "LIVE" and pred_engine is None:
+             return render_template('error.html', message="System is still warming up. Models are loading in the background. Please refresh in 30 seconds.")
 
         if mode == "NIGHT":
             # 1. Try to fetch nightly_dump
@@ -347,9 +350,15 @@ def stock_detail(symbol):
                 return render_template('stock.html', **render_params)
             else:
                 print(f"--- [Dashboard] No MongoDB data found for {symbol}. Falling back to LIVE MODE. ---")
+                mode = "LIVE" # Force live mode
+                if pred_engine is None:
+                    # Dynamically load the predictor if we must fall back
+                    global _stock_predictor
+                    if _stock_predictor is None:
+                        _stock_predictor = predictor.StockPredictor()
+                    pred_engine = _stock_predictor
 
-        # Fallback to LIVE MODE (on-demand fresh engines)
-        if symbol in analysis_cache:
+        # Fallback to LIVE MODE (on-demand fresh engines)        if symbol in analysis_cache:
             ts, data = analysis_cache[symbol]
             if time.time() - ts < 1800: return render_template('stock.html', **data)
 
