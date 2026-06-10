@@ -28,74 +28,66 @@ import conviction
 
 app = Flask(__name__)
 
-# MongoDB Setup
+# Config
+USE_LEGACY_WEIGHTS = os.environ.get('USE_LEGACY_WEIGHTS', 'false').lower() == 'true'
 MONGODB_URI = os.getenv("MONGODB_URI", "")
-client = None
-collection = None
 
-if MONGODB_URI:
-    try:
-        client = MongoClient(MONGODB_URI)
-        db = client.stocksense
-        collection = db.stocksense_results
-        # Test connection
-        client.admin.command('ping')
-        print("--- [Server] MongoDB Connected Successfully ---")
-    except Exception as e:
-        print(f"--- [Server] MongoDB Connection Error: {e} ---")
-        collection = None
-else:
-    print("--- [Server] WARNING: MONGODB_URI not set. Night Mode will be disabled. ---")
-
-def get_dashboard_mode():
-    """
-    Detects mode based on IST time.
-    LIVE: 9:15 AM to 7:00 PM IST, Weekdays
-    NIGHT: 7:00 PM to 9:15 AM IST, Weekdays + Weekends
-    """
-    IST = pytz.timezone('Asia/Kolkata')
-    now = datetime.now(IST)
-    weekday = now.weekday() # 0 is Monday, 6 is Sunday
-    current_time = now.time()
-    
-    start_live = datetime.strptime("09:15", "%H:%M").time()
-    end_live = datetime.strptime("19:00", "%H:%M").time()
-    
-    if 0 <= weekday <= 4: # Weekday
-        if start_live <= current_time <= end_live:
-            return "LIVE"
-    
-    return "NIGHT"
-
-# Global state
+# Global state (Initialized lazily in background)
 _stock_predictor = None
 _sentiment_analyzer = None
 _meta_model = None
+_mongodb_collection = None
 _models_loading = False
 _training_lock = threading.Lock()
 
-# Config
-USE_LEGACY_WEIGHTS = os.environ.get('USE_LEGACY_WEIGHTS', 'false').lower() == 'true'
-
-def load_models_task():
-    global _stock_predictor, _sentiment_analyzer, _meta_model, _models_loading
-    if _stock_predictor is None or _sentiment_analyzer is None or _meta_model is None:
-        if _models_loading: return
-        _models_loading = True
-        print("--- [Server] Initializing Market-Adaptive Ensemble... ---")
+def load_engines_task():
+    """
+    Background task to initialize heavy models and DB connection.
+    This allows Gunicorn/Render to start the server instantly.
+    """
+    global _stock_predictor, _sentiment_analyzer, _meta_model, _mongodb_collection, _models_loading
+    
+    if _models_loading: return
+    _models_loading = True
+    
+    print("--- [Background] Initializing Market-Adaptive Ensemble & DB... ---")
+    
+    # 1. MongoDB Setup
+    if MONGODB_URI:
         try:
-            if _stock_predictor is None: _stock_predictor = predictor.StockPredictor()
-            if _sentiment_analyzer is None: _sentiment_analyzer = sentiment.SentimentAnalyzer()
-            if _meta_model is None: _meta_model = meta_model.MetaModel()
+            client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+            db = client.stocksense
+            _mongodb_collection = db.stocksense_results
+            # Just a quick check, don't let it block indefinitely
+            client.admin.command('ping')
+            print("--- [Background] MongoDB Connected Successfully ---")
         except Exception as e:
-            print(f"Error loading models: {e}")
-        _models_loading = False
-        print("--- [Server] Ensemble Ready. ---")
+            print(f"--- [Background] MongoDB Connection Error: {e} ---")
+            _mongodb_collection = None
+    else:
+        print("--- [Background] WARNING: MONGODB_URI not set. Night Mode will be disabled. ---")
+
+    # 2. Heavy Engine Loading
+    try:
+        if _stock_predictor is None: _stock_predictor = predictor.StockPredictor()
+        if _sentiment_analyzer is None: _sentiment_analyzer = sentiment.SentimentAnalyzer()
+        if _meta_model is None: _meta_model = meta_model.MetaModel()
+        print("--- [Background] All Engines Ready. ---")
+    except Exception as e:
+        print(f"--- [Background] Error loading models: {e} ---")
+        
+    _models_loading = False
+
+# Start initialization thread IMMEDIATELY at the top level
+# This ensures it runs even when imported by Gunicorn
+threading.Thread(target=load_engines_task, daemon=True).start()
 
 def get_models():
+    """Helper to get models, ensuring they are loaded."""
     global _stock_predictor, _sentiment_analyzer, _meta_model
     if _stock_predictor is None or _sentiment_analyzer is None or _meta_model is None:
-        load_models_task()
+        # If they aren't ready yet, the dashboard will handle it gracefully
+        pass
     return _stock_predictor, _sentiment_analyzer, _meta_model
 
 def safe_train(pred_engine, symbol):
@@ -443,6 +435,7 @@ def stock_search():
     return redirect(f'/stock/{symbol}') if symbol else redirect('/')
 
 if __name__ == '__main__':
-    threading.Thread(target=load_models_task).start()
+    # Thread is already started at the top level for Gunicorn, 
+    # but we keep it here for local development runs.
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port, debug=False)
