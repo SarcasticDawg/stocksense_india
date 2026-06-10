@@ -188,23 +188,25 @@
             </li>
             <li>
                 Put/Call Ratio: 
-                {% if pcr %}
+                {% if pcr and pcr.pcr and pcr.pcr != 'N/A' %}
                 <strong class="{% if pcr.sentiment == 'Bullish' %}pos{% elif pcr.sentiment == 'Bearish' %}neg{% endif %}">
                     {{ pcr.pcr }}
                 </strong>
                 <small>({{ pcr.sentiment }})</small>
                 {% else %}
-                <small>N/A</small>
+                <small>N/A (Non-F&O)</small>
                 {% endif %}
             </li>
-            {% if conviction %}
+            {% if conviction and conviction.latest_pct is defined and conviction.latest_pct > 0 %}
             <li>
                 Delivery: 
                 <strong class="{% if conviction.latest_pct > conviction.avg_5d %}pos{% elif conviction.latest_pct < 20 %}neg{% endif %}">
                     {{ conviction.latest_pct }}%
                 </strong>
-                <small>({{ conviction.verdict }})</small>
+                <small>({{ conviction.verdict or 'Neutral' }})</small>
             </li>
+            {% else %}
+            <li>Delivery: <small>N/A</small></li>
             {% endif %}
             {% endif %}
         </ul>

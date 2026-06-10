@@ -40,6 +40,26 @@ _mongodb_collection = None
 _models_loading = False
 _training_lock = threading.Lock()
 
+def get_dashboard_mode():
+    """
+    Detects mode based on IST time.
+    LIVE: 9:15 AM to 7:00 PM IST, Weekdays
+    NIGHT: 7:00 PM to 9:15 AM IST, Weekdays + Weekends
+    """
+    IST = pytz.timezone('Asia/Kolkata')
+    now = datetime.now(IST)
+    weekday = now.weekday() # 0 is Monday, 6 is Sunday
+    current_time = now.time()
+    
+    start_live = datetime.strptime("09:15", "%H:%M").time()
+    end_live = datetime.strptime("19:00", "%H:%M").time()
+    
+    if 0 <= weekday <= 4: # Weekday
+        if start_live <= current_time <= end_live:
+            return "LIVE"
+    
+    return "NIGHT"
+
 def load_engines_task():
     """
     Background task to initialize heavy models and DB connection.
@@ -175,7 +195,6 @@ def compute_combined_signal(symbol, pred_data, sentiment_metadata, macro_data, s
         'sentiment': float(sent_score),
         'inst_flow': float(inst_flow_score),
         'pcr': float(pcr_score),
-        'conviction': float(conv_score),
         'sector': float(sector_score),
         'regime': float(regime_val)
     }
@@ -201,7 +220,7 @@ def compute_combined_signal(symbol, pred_data, sentiment_metadata, macro_data, s
             (current_features['ai_price'] * w_ai) +
             (current_features['sentiment'] * w_sent) +
             (current_features['inst_flow'] * w_inst) +
-            (current_features['conviction'] * w_conv) +
+            (conv_score * w_conv) +
             (current_features['sector'] * w_sect)
         )
         method = "Contextual Manual Weights"
@@ -338,9 +357,15 @@ def stock_detail(symbol):
                 for c in corp_items: unified_feed.append({'title': c['title'], 'link': c.get('link', '#'), 'date': c['date'], 'source': 'NSE/BSE', 'type': 'Announcement'})
 
                 render_params = {
-                    'symbol': symbol, 'prediction': nightly['pred_data'], 'pcr': nightly['pcr_data'], 'conviction': nightly['conv_data'],
-                    'macro': nightly['macro_data'], 'sector': nightly['sector_data'], 'signal': signal,
-                    'backtest': nightly['bt_data'], 'unified_feed': unified_feed,
+                    'symbol': symbol, 
+                    'prediction': nightly.get('pred_data') or {}, 
+                    'pcr': nightly.get('pcr_data') or {"pcr": "N/A", "sentiment": "N/A"}, 
+                    'conviction': nightly.get('conv_data') or {"latest_pct": 0.0, "avg_5d": 0.0},
+                    'macro': nightly.get('macro_data') or {}, 
+                    'sector': nightly.get('sector_data') or {"sector": "Unknown", "peers": []}, 
+                    'signal': signal,
+                    'backtest': nightly.get('bt_data') or {"win_rate": 0, "total_trades": 0, "signals": []}, 
+                    'unified_feed': unified_feed,
                     'sent_data': {
                         'news': news_sent, 'social': social_sent, 'corporate': corp_sent, 'total': total_sent, 
                         'mentions': sent_metadata.get('mentions', {})
