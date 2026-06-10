@@ -58,8 +58,7 @@ This repository contains a GitHub Actions workflow (`.github/workflows/stocksens
 
 1.  Add `MONGODB_URI` to your GitHub Repository Secrets.
 2.  The scheduler will automatically run:
-    *   **19:00 IST:** `batch_runner.py` (Full data fetch & ML retraining)
-    *   **08:30 IST:** `premarket_runner.py` (Morning sentiment refresh)
+    *   **19:00 IST:** `batch_runner.py` (Full data fetch, ML retraining, and prediction save)
 
 ## 🤝 Contributing
 Contributions are welcome! If you'd like to improve the sentiment lexicon, add new data sources, or optimize the ML models, please fork the repository and submit a Pull Request.

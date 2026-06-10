@@ -275,12 +275,12 @@ def stock_detail(symbol):
             return render_template('error.html', message="System is still warming up. Models are loading in the background. Please refresh in 30 seconds.")
 
         if mode == "NIGHT":
-            # 1. Try to fetch morning_prediction (freshest) or nightly_dump
+            # 1. Try to fetch nightly_dump
             mongo_col = get_mongodb_collection()
             latest_data = None
             if mongo_col is not None:
                 latest_data = mongo_col.find_one(
-                    {"symbol": symbol, "type": {"$in": ["morning_prediction", "nightly_dump"]}},
+                    {"symbol": symbol, "type": "nightly_dump"},
                     sort=[("timestamp", -1)]
                 )
             

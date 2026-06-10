@@ -115,4 +115,28 @@ The system evaluates data quality across 6 circumstances to prevent noise from c
 - [ ] Add real-time price alerts via Email/Telegram.
 
 ---
-*Generated on June 8, 2026*
+
+## 7. Automated Intelligence Pipeline (v3.0)
+The system features a fully automated data-fetch and model-retraining pipeline, eliminating manual updates and ensuring high-performance dashboard loads.
+
+### A. Dashboard Operating Modes
+The `app.py` orchestrator dynamically switches modes based on **IST (Asia/Kolkata)** time:
+
+| Mode | Active Hours (IST) | Logic Description |
+| :--- | :--- | :--- |
+| **LIVE MODE** | **09:15 - 19:00** (Weekdays) | **Fresh Engines**: Runs all analytics (AI, Macro, Technicals) on-demand for real-time market data. |
+| **NIGHT MODE**| **19:00 - 09:15** (All days) | **Cached + Fresh**: Loads pre-computed Macro/AI data from **MongoDB**; runs only the **Sentiment Engine** fresh for instant loads (~1.5s vs 8s). |
+
+### B. Automated Pipeline Scripts
+| Script | Schedule (IST) | Core Responsibilities |
+| :--- | :--- | :--- |
+| **`batch_runner.py`** | **19:00 (Nightly)** | 1. **Outcome Backfill**: Compares yesterday's predictions with actual close prices.<br>2. **Meta-Model Retrain**: Optimizes signal weights based on backfilled accuracy.<br>3. **Full Analytics**: Fetches and saves complete data (F&O, PCR, Delivery, AI) for all Nifty 50 stocks to MongoDB. |
+
+### C. Infrastructure & Scalability
+- **Database (MongoDB Atlas)**: Used as the "System Memory" to store nightly dumps (`nightly_dump`).
+- **Orchestration (GitHub Actions)**: Uses `.github/workflows/stocksense_pipeline.yml` to trigger runners using serverless compute. 
+- **Security**: Database credentials and API keys are managed via **GitHub Repository Secrets** (`MONGODB_URI`).
+- **Self-Healing Loop**: The pipeline automatically detects missing data and uses fallback weights if certain endpoints (like Sensibull or NiftyInvest) are temporarily unavailable.
+
+---
+*Generated on June 10, 2026*
