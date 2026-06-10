@@ -7,7 +7,16 @@ import gc
 
 class MetaModel:
     def __init__(self, model_dir='models'):
-        self.model_dir = model_dir
+        # Ensure model_dir is an absolute path relative to the project root
+        if not os.path.isabs(model_dir):
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            self.model_dir = os.path.join(base_dir, model_dir)
+        else:
+            self.model_dir = model_dir
+            
+        if not os.path.exists(self.model_dir):
+            os.makedirs(self.model_dir)
+            
         self.model_path = os.path.join(self.model_dir, 'meta_model.joblib')
         self.cache_path = os.path.join(self.model_dir, 'feature_cache.csv')
         self.model = self._load_model()

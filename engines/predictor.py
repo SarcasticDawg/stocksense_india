@@ -18,7 +18,13 @@ import macro
 
 class StockPredictor:
     def __init__(self, model_dir='models'):
-        self.model_dir = model_dir
+        # Ensure model_dir is an absolute path relative to the project root
+        if not os.path.isabs(model_dir):
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            self.model_dir = os.path.join(base_dir, model_dir)
+        else:
+            self.model_dir = model_dir
+            
         if not os.path.exists(self.model_dir):
             os.makedirs(self.model_dir)
         self.scaler = MinMaxScaler()
