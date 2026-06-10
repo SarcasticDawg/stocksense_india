@@ -29,10 +29,23 @@ import conviction
 app = Flask(__name__)
 
 # MongoDB Setup
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
-client = MongoClient(MONGODB_URI)
-db = client.stocksense
-collection = db.stocksense_results
+MONGODB_URI = os.getenv("MONGODB_URI", "")
+client = None
+collection = None
+
+if MONGODB_URI:
+    try:
+        client = MongoClient(MONGODB_URI)
+        db = client.stocksense
+        collection = db.stocksense_results
+        # Test connection
+        client.admin.command('ping')
+        print("--- [Server] MongoDB Connected Successfully ---")
+    except Exception as e:
+        print(f"--- [Server] MongoDB Connection Error: {e} ---")
+        collection = None
+else:
+    print("--- [Server] WARNING: MONGODB_URI not set. Night Mode will be disabled. ---")
 
 def get_dashboard_mode():
     """
