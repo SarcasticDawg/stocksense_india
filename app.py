@@ -384,7 +384,8 @@ def stock_detail(symbol):
                         _stock_predictor = predictor.StockPredictor()
                     pred_engine = _stock_predictor
 
-        # Fallback to LIVE MODE (on-demand fresh engines)        if symbol in analysis_cache:
+        # Fallback to LIVE MODE (on-demand fresh engines)
+        if symbol in analysis_cache:
             ts, data = analysis_cache[symbol]
             if time.time() - ts < 1800: return render_template('stock.html', **data)
 
