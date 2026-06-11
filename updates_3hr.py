@@ -20,7 +20,7 @@ SENTIMENT_UPDATE_PATH = os.path.join(DATA_DIR, 'sentiment_update.json')
 # --- Helper functions for JSON I/O (copied from batch_runner.py) ---
 def load_json_data(file_path, default_value={}):
     if not os.path.exists(DATA_DIR):
-        os.makedirs(DATA_DIR)
+        os.makedirs(DATA_DIR, exist_ok=True)
     if os.path.exists(file_path):
         with open(file_path, 'r') as f:
             try:
@@ -31,7 +31,7 @@ def load_json_data(file_path, default_value={}):
 
 def save_json_data(file_path, data):
     if not os.path.exists(DATA_DIR):
-        os.makedirs(DATA_DIR)
+        os.makedirs(DATA_DIR, exist_ok=True)
     with open(file_path, 'w') as f:
         json.dump(data, f, indent=4)
 
@@ -65,15 +65,19 @@ def run_3hr_update():
             news_items = raw_data.get('news', [])
             social_items = raw_data.get('social', [])
             corp_items = raw_data.get('corporate', [])
+            corp_titles = [c['title'] for c in corp_items]
 
-            news_sent = sent_analyzer.analyze_batch(news_items, is_news=True)
-            social_sent = sent_analyzer.analyze_batch(social_items)
-            corp_sent = sent_analyzer.analyze_batch(corp_items, is_corporate=True)
+            news_sent = sent_analyzer.analyze_batch(news_items, is_news=True) if news_items else 0
+            social_sent = sent_analyzer.analyze_batch(social_items) if social_items else 0
+            corp_sent = sent_analyzer.analyze_batch(corp_titles, is_corporate=True) if corp_titles else 0
             
-            total_sent = (news_sent * 0.3) + (social_sent * 0.2) + (corp_sent * 0.5)
+            total_sent = (news_sent * 0.4) + (social_sent * 0.2) + (corp_sent * 0.4)
 
             sentiment_metadata = {
                 'total_score': total_sent,
+                'news_score': news_sent,
+                'social_score': social_sent,
+                'corp_score': corp_sent,
                 'mentions': {
                     'news': len(news_items), 
                     'social': len(social_items), 

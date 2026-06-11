@@ -156,12 +156,20 @@ def stock_detail(symbol):
             for s in social_items: unified_feed.append({'title': s['title'], 'link': s.get('link', '#'), 'date': s['date'], 'source': s['source'], 'type': 'Social'})
             for c in corp_items: unified_feed.append({'title': c['title'], 'link': c.get('link', '#'), 'date': c['date'], 'source': 'NSE/BSE', 'type': 'Announcement'})
 
+            sent_display_data = {
+                'total': sent_metadata.get('total_score', 0),
+                'news': sent_metadata.get('news_score', 0),
+                'social': sent_metadata.get('social_score', 0),
+                'corporate': sent_metadata.get('corp_score', 0),
+                'mentions': sent_metadata.get('mentions', {})
+            }
+
             return render_template('stock.html', 
                 symbol=symbol, prediction=nightly.get('pred_data', {}), 
                 pcr=nightly.get('pcr_data') or {"pcr": "N/A"}, conviction=nightly.get('conv_data') or {"latest_pct": 0},
                 macro=nightly.get('macro_data') or {}, sector=nightly.get('sector_data') or {"sector": "Unknown"},
                 signal=signal, backtest=nightly.get('bt_data') or {"win_rate": 0},
-                unified_feed=unified_feed, sent_data={'total': sent_metadata.get('total_score', 0), 'mentions': sent_metadata.get('mentions', {})},
+                unified_feed=unified_feed, sent_data=sent_display_data,
                 chart_data=nightly.get('chart_data', {"labels":[], "prices":[]}), mode='DB-ONLY (Stable)'
             )
         else:

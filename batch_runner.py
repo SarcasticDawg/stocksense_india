@@ -66,10 +66,10 @@ def run_batch():
     IST = pytz.timezone('Asia/Kolkata')
     now_ist = datetime.now(IST)
     
-    print("====================================================")
+    print("====================================================\n")
     print(f"StockSense India - Execution Runner v4.0")
     print(f"Started at: {now_ist.strftime('%Y-%m-%d %H:%M:%S')} IST")
-    print("====================================================")
+    print("====================================================\n")
 
     # 1. Load Market Context & Indices
     try:
@@ -125,15 +125,27 @@ def run_batch():
             # --- PHASE 3: SENTIMENT & ML ENSEMBLE ---
             news_texts = [n['text'] for n in raw_data['news']]
             social_texts = [s['text'] for s in raw_data['social']]
+            corp_titles = [c['title'] for c in raw_data.get('corporate', [])]
             
-            news_score = sent_analyzer.analyze_batch(news_texts) if news_texts else 0
+            news_score = sent_analyzer.analyze_batch(news_texts, is_news=True) if news_texts else 0
             social_score = sent_analyzer.analyze_batch(social_texts) if social_texts else 0
-            total_sent = (news_score * 0.7) + (social_score * 0.3)
+            corp_score = sent_analyzer.analyze_batch(corp_titles, is_corporate=True) if corp_titles else 0
+            
+            total_sent = (news_score * 0.4) + (social_score * 0.2) + (corp_score * 0.4)
             
             mentions = {
                 'corp': len(raw_data.get('corporate', [])),
                 'news': len(raw_data['news']),
-                'social': len(raw_data['social'])
+                'social': len(raw_data['social']),
+                'total': len(raw_data.get('corporate', [])) + len(raw_data['news']) + len(raw_data['social'])
+            }
+            
+            sentiment_metadata = {
+                'total_score': total_sent,
+                'news_score': news_score,
+                'social_score': social_score,
+                'corp_score': corp_score,
+                'mentions': mentions
             }
             
             # Signal Features
@@ -193,7 +205,7 @@ def run_batch():
                     "chart_data": chart_data,
                     "bt_data": bt_data,
                     "pred_data": pred_data,
-                    "sentiment_metadata": {'total_score': total_sent, 'mentions': mentions},
+                    "sentiment_metadata": sentiment_metadata,
                     "signal": {
                         "verdict": verdict,
                         "score": round(float(final_signal), 2),
@@ -222,7 +234,7 @@ def run_batch():
     # Save the updated nightly dump after processing all symbols
     save_json_data(NIGHTLY_DUMP_PATH, current_nightly_dump)
 
-    print("====================================================")
+    print("\n====================================================\n")
 
 if __name__ == "__main__":
     run_batch()
