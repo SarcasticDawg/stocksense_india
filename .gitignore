@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+models/
+data/screener_ids.json
+feature_cache.csv
+.gemini/
+reproduce_issue.py
+test_mongo_conn.py

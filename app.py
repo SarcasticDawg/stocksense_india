@@ -11,6 +11,10 @@ import traceback
 import pytz
 from datetime import datetime
 from pymongo import MongoClient
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Add engines to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'engines'))
@@ -299,98 +303,88 @@ def stock_detail(symbol):
         
         pred_engine, sent_engine, meta_engine = get_models()
 
-        if sent_engine is None or meta_engine is None:
-            return render_template('error.html', message="System is still warming up. Models are loading in the background. Please refresh in 30 seconds.")
+        # 1. ALWAYS try to fetch from MongoDB first (Primary Source for Render stability)
+        mongo_col = get_mongodb_collection()
+        latest_data = None
+        sentiment_data = None
+        
+        if mongo_col is not None:
+            latest_data = mongo_col.find_one(
+                {"symbol": symbol, "type": "nightly_dump"},
+                sort=[("timestamp", -1)]
+            )
+            sentiment_data = mongo_col.find_one(
+                {"symbol": symbol, "type": "sentiment_update"},
+                sort=[("timestamp", -1)]
+            )
 
-        if mode == "LIVE" and pred_engine is None:
-             return render_template('error.html', message="System is still warming up. Models are loading in the background. Please refresh in 30 seconds.")
-
-        if mode == "NIGHT":
-            # 1. Try to fetch nightly_dump
-            mongo_col = get_mongodb_collection()
-            latest_data = None
-            sentiment_data = None
-            if mongo_col is not None:
-                latest_data = mongo_col.find_one(
-                    {"symbol": symbol, "type": "nightly_dump"},
-                    sort=[("timestamp", -1)]
-                )
-                sentiment_data = mongo_col.find_one(
-                    {"symbol": symbol, "type": "sentiment_update"},
-                    sort=[("timestamp", -1)]
-                )
+        # 2. If we have cached data, use it (resilient to scraper blocks)
+        if latest_data:
+            print(f"Using cached data for {symbol} (Resilient Mode).")
+            nightly = latest_data['data']
             
-            if latest_data:
-                print(f"Found pre-computed data for {symbol} in MongoDB.")
-                
-                nightly = latest_data['data']
-                
-                # Determine which sentiment data is fresher
-                if sentiment_data and sentiment_data['timestamp'] > latest_data['timestamp']:
-                    print(f"Using fresher 3-hour sentiment update for {symbol}.")
-                    sent_source = sentiment_data['data']
-                else:
-                    sent_source = nightly
-                
-                # Use cached data ONLY (No Live Scraping)
-                news_items = sent_source.get('raw_data_news', [])
-                social_items = sent_source.get('raw_data_social', [])
-                corp_items = sent_source.get('raw_data_corporate', [])
-                sent_metadata = sent_source.get('sentiment_metadata', {})
-                
-                # Since we don't scrape, we pull the chart data from the nightly dump too
-                chart_data = nightly.get('chart_data', {"labels": [], "prices": []})
+            # Use fresher sentiment if available
+            if sentiment_data and sentiment_data['timestamp'] > latest_data['timestamp']:
+                sent_source = sentiment_data['data']
+            else:
+                sent_source = nightly
+            
+            # Extract data
+            news_items = sent_source.get('raw_data_news', [])
+            social_items = sent_source.get('raw_data_social', [])
+            corp_items = sent_source.get('raw_data_corporate', [])
+            sent_metadata = sent_source.get('sentiment_metadata', {})
+            chart_data = nightly.get('chart_data', {"labels": [], "prices": []})
 
-                # Re-calculate sentiment splits for display purposes
+            # Signal & Sentiment analysis (safely handles None engines)
+            if sent_engine:
                 news_sent = sent_engine.analyze_batch(news_items, is_news=True)
                 social_sent = sent_engine.analyze_batch(social_items)
                 corp_sent = sent_engine.analyze_batch(corp_items, is_corporate=True)
                 total_sent = sent_metadata.get('total_score', 0)
-
-                # Combined Signal with pre-computed parts
-                signal = compute_combined_signal(
-                    symbol, 
-                    nightly['pred_data'], 
-                    sent_metadata, 
-                    nightly['macro_data'], 
-                    nightly['sector_data'], 
-                    nightly['conv_data'], 
-                    meta_engine
-                )
-                
-                # Unified Feed
-                unified_feed = []
-                for n in news_items: unified_feed.append({'title': n['title'], 'link': n.get('link', '#'), 'date': n['date'], 'source': n['source'], 'type': 'News'})
-                for s in social_items: unified_feed.append({'title': s['title'], 'link': s.get('link', '#'), 'date': s['date'], 'source': s['source'], 'type': 'Social'})
-                for c in corp_items: unified_feed.append({'title': c['title'], 'link': c.get('link', '#'), 'date': c['date'], 'source': 'NSE/BSE', 'type': 'Announcement'})
-
-                render_params = {
-                    'symbol': symbol, 
-                    'prediction': nightly.get('pred_data') or {}, 
-                    'pcr': nightly.get('pcr_data') or {"pcr": "N/A", "sentiment": "N/A"}, 
-                    'conviction': nightly.get('conv_data') or {"latest_pct": 0.0, "avg_5d": 0.0},
-                    'macro': nightly.get('macro_data') or {}, 
-                    'sector': nightly.get('sector_data') or {"sector": "Unknown", "peers": []}, 
-                    'signal': signal,
-                    'backtest': nightly.get('bt_data') or {"win_rate": 0, "total_trades": 0, "signals": []}, 
-                    'unified_feed': unified_feed,
-                    'sent_data': {
-                        'news': news_sent, 'social': social_sent, 'corporate': corp_sent, 'total': total_sent, 
-                        'mentions': sent_metadata.get('mentions', {})
-                    },
-                    'chart_data': chart_data, 'app_name': "StockIntel",
-                    'mode': 'NIGHT (Cached)'
-                }
-                return render_template('stock.html', **render_params)
             else:
-                print(f"--- [Dashboard] No MongoDB data found for {symbol}. Falling back to LIVE MODE. ---")
-                mode = "LIVE" # Force live mode
-                if pred_engine is None:
-                    # Dynamically load the predictor if we must fall back
-                    global _stock_predictor
-                    if _stock_predictor is None:
-                        _stock_predictor = predictor.StockPredictor()
-                    pred_engine = _stock_predictor
+                # Fallback to pre-computed scores if engine is still loading
+                news_sent = 0.0
+                social_sent = 0.0
+                corp_sent = 0.0
+                total_sent = sent_metadata.get('total_score', 0)
+
+            signal = compute_combined_signal(
+                symbol, nightly['pred_data'], sent_metadata, 
+                nightly['macro_data'], nightly['sector_data'], nightly['conv_data'], 
+                meta_engine
+            ) if meta_engine else {"verdict": "HOLD", "score": 0, "method": "Warming Up...", "breakdown": {}}
+            
+            unified_feed = []
+            for n in news_items: unified_feed.append({'title': n['title'], 'link': n.get('link', '#'), 'date': n['date'], 'source': n['source'], 'type': 'News'})
+            for s in social_items: unified_feed.append({'title': s['title'], 'link': s.get('link', '#'), 'date': s['date'], 'source': s['source'], 'type': 'Social'})
+            for c in corp_items: unified_feed.append({'title': c['title'], 'link': c.get('link', '#'), 'date': c['date'], 'source': 'NSE/BSE', 'type': 'Announcement'})
+
+            render_params = {
+                'symbol': symbol, 
+                'prediction': nightly.get('pred_data') or {}, 
+                'pcr': nightly.get('pcr_data') or {"pcr": "N/A", "sentiment": "N/A"}, 
+                'conviction': nightly.get('conv_data') or {"latest_pct": 0.0, "avg_5d": 0.0},
+                'macro': nightly.get('macro_data') or {}, 
+                'sector': nightly.get('sector_data') or {"sector": "Unknown", "peers": []}, 
+                'signal': signal,
+                'backtest': nightly.get('bt_data') or {"win_rate": 0, "total_trades": 0, "signals": []}, 
+                'unified_feed': unified_feed,
+                'sent_data': {
+                    'news': news_sent, 'social': social_sent, 'corporate': corp_sent, 'total': total_sent, 
+                    'mentions': sent_metadata.get('mentions', {})
+                },
+                'chart_data': chart_data, 'app_name': "StockIntel",
+                'mode': f'{mode} (Cached)'
+            }
+            return render_template('stock.html', **render_params)
+
+        # 3. Fallback to LIVE MODE ONLY if no cache exists
+        if sent_engine is None or meta_engine is None:
+            return render_template('error.html', message="System is still warming up. Models are loading in the background. Please refresh in 30 seconds.")
+
+        if mode == "LIVE" and pred_engine is None:
+             return render_template('error.html', message="AI Predictor is still loading. Please refresh in 30 seconds.")
 
         # Fallback to LIVE MODE (on-demand fresh engines)
         if symbol in analysis_cache:
