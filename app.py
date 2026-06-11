@@ -17,9 +17,15 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'engines'))
 
 app = Flask(__name__)
 
-@app.route('/health')
-def health():
-    return "OK", 200
+@app.route('/diag')
+def diag():
+    uri_exists = bool(os.getenv("MONGODB_URI"))
+    col = get_mongodb_collection()
+    return jsonify({
+        "uri_set": uri_exists,
+        "connected": col is not None,
+        "mode": get_dashboard_mode()
+    })
 
 # Config
 MONGODB_URI = os.getenv("MONGODB_URI", "")
