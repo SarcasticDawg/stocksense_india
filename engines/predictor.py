@@ -2,12 +2,7 @@ import os
 import sys
 import pandas as pd
 import numpy as np
-import lightgbm as lgb
-from xgboost import XGBClassifier
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.linear_model import LogisticRegression
 from datetime import datetime
-import joblib
 import gc
 
 # Path setup
@@ -27,7 +22,7 @@ class StockPredictor:
             
         if not os.path.exists(self.model_dir):
             os.makedirs(self.model_dir)
-        self.scaler = MinMaxScaler()
+        self.scaler = None # Initialized on demand
         self.model_cache = {}
 
     def prepare_feature_matrix(self, symbol, period="2y"):
@@ -60,6 +55,9 @@ class StockPredictor:
         return df[available_cols], df['Close']
 
     def train(self, symbol):
+        import lightgbm as lgb
+        from xgboost import XGBClassifier
+        import joblib
         print(f"--- [AI Training] LightGBM & XGBoost for {symbol} ---")
         try:
             features, target = self.prepare_feature_matrix(symbol)
@@ -90,6 +88,10 @@ class StockPredictor:
             print(f"AI Training Error for {symbol}: {e}")
 
     def get_prediction(self, symbol):
+        import lightgbm as lgb
+        from xgboost import XGBClassifier
+        import joblib
+        
         lgbm_path = os.path.join(self.model_dir, f'lgbm_{symbol}.joblib')
         xgb_path = os.path.join(self.model_dir, f'xgb_{symbol}.json')
         

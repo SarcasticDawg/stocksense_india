@@ -1,8 +1,6 @@
 import os
 import pandas as pd
 import numpy as np
-from sklearn.linear_model import LogisticRegression
-import joblib
 import gc
 
 class MetaModel:
@@ -23,6 +21,7 @@ class MetaModel:
 
     def _load_model(self):
         if os.path.exists(self.model_path):
+            import joblib
             return joblib.load(self.model_path)
         return None
 
@@ -32,6 +31,8 @@ class MetaModel:
         historical_features: DataFrame with columns [ai_score, sentiment, inst_flow, pcr, sector, regime]
         historical_outcomes: Series of 1 (Price Up) or 0 (Price Down)
         """
+        from sklearn.linear_model import LogisticRegression
+        import joblib
         print("--- [Meta-Model] Training Machine-Learned Weights ---")
         model = LogisticRegression(class_weight='balanced')
         model.fit(historical_features, historical_outcomes)

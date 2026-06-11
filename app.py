@@ -67,20 +67,20 @@ def load_engines_task():
     """
     global _stock_predictor, _sentiment_analyzer, _meta_model, _mongodb_collection, _models_loading
     
+    # We allow multiple calls but only one active run
     if _models_loading: return
     _models_loading = True
     
     print("--- [Background] Initializing Market-Adaptive Ensemble & DB... ---")
     
-    # 1. MongoDB Setup
+    # 1. MongoDB Setup (Non-blocking)
     if MONGODB_URI:
         try:
+            # Short timeout for connection check
             client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
             db = client.stocksense
             _mongodb_collection = db.stocksense_results
-            # Just a quick check, don't let it block indefinitely
-            client.admin.command('ping')
-            print("--- [Background] MongoDB Connected Successfully ---")
+            print("--- [Background] MongoDB Connection Established. ---")
         except Exception as e:
             print(f"--- [Background] MongoDB Connection Error: {e} ---")
             _mongodb_collection = None
@@ -89,31 +89,39 @@ def load_engines_task():
 
     # 2. Heavy Engine Loading
     try:
-        if _sentiment_analyzer is None: _sentiment_analyzer = sentiment.SentimentAnalyzer()
-        if _meta_model is None: _meta_model = meta_model.MetaModel()
+        if _sentiment_analyzer is None: 
+            print("--- [Background] Loading Sentiment Engine... ---")
+            _sentiment_analyzer = sentiment.SentimentAnalyzer()
+        if _meta_model is None: 
+            print("--- [Background] Loading Meta-Model... ---")
+            _meta_model = meta_model.MetaModel()
         
         mode = get_dashboard_mode()
         if mode == "LIVE":
-            if _stock_predictor is None: _stock_predictor = predictor.StockPredictor()
+            if _stock_predictor is None: 
+                print("--- [Background] Loading AI Predictor (LIVE MODE)... ---")
+                _stock_predictor = predictor.StockPredictor()
             print("--- [Background] All Engines (LIVE MODE) Ready. ---")
         else:
             print("--- [Background] Night Mode: Skipping heavy ML models to save memory. ---")
             
     except Exception as e:
-        print(f"--- [Background] Error loading models: {e} ---")
+        print(f"--- [Background] Error during engine initialization: {e} ---")
+        traceback.print_exc()
         
     _models_loading = False
 
-# Start initialization thread IMMEDIATELY at the top level
-# This ensures it runs even when imported by Gunicorn
+# Initial trigger
 threading.Thread(target=load_engines_task, daemon=True).start()
 
 def get_models():
-    """Helper to get models, ensuring they are loaded."""
-    global _stock_predictor, _sentiment_analyzer, _meta_model
-    if _stock_predictor is None or _sentiment_analyzer is None or _meta_model is None:
-        # If they aren't ready yet, the dashboard will handle it gracefully
-        pass
+    """Helper to get models, ensuring they are loaded. Triggers reload if missing."""
+    global _stock_predictor, _sentiment_analyzer, _meta_model, _models_loading
+    
+    # If they are missing and not loading, trigger a background run
+    if (_sentiment_analyzer is None or _meta_model is None) and not _models_loading:
+        threading.Thread(target=load_engines_task, daemon=True).start()
+        
     return _stock_predictor, _sentiment_analyzer, _meta_model
 
 def safe_train(pred_engine, symbol):

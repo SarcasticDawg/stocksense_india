@@ -1,4 +1,3 @@
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import numpy as np
 import os
 import sys
@@ -12,6 +11,7 @@ except ImportError:
 
 class SentimentAnalyzer:
     def __init__(self):
+        from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
         print("Loading VADER Sentiment Engine with Finance Lexicon...")
         self.analyzer = SentimentIntensityAnalyzer()
         self.analyzer.lexicon.update(finance_lexicon)
