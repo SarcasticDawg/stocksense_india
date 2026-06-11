@@ -66,11 +66,10 @@ def run_batch():
     IST = pytz.timezone('Asia/Kolkata')
     now_ist = datetime.now(IST)
     
-    print("====================================================")
+    print("====================================================\n")
     print(f"StockSense India - Execution Runner v4.0")
     print(f"Started at: {now_ist.strftime('%Y-%m-%d %H:%M:%S')} IST")
-    print("====================================================
-") # Fixed: Added closing quote
+    print("====================================================\n") # Fixed: Added closing quote
 
     # 1. Load Market Context & Indices
     try:
