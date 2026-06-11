@@ -6,7 +6,7 @@ import gc
 import traceback
 import pytz
 from datetime import datetime
-from pymongo import MongoClient
+import json # New import for JSON handling
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -17,92 +17,89 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'engines'))
 
 app = Flask(__name__)
 
-@app.route('/diag')
-def diag():
-    uri_exists = bool(os.getenv("MONGODB_URI"))
-    col = get_mongodb_collection()
-    return jsonify({
-        "uri_set": uri_exists,
-        "connected": col is not None,
-        "mode": get_dashboard_mode()
-    })
+# --- JSON File Paths (copied from batch_runner.py) ---
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+NIGHTLY_DUMP_PATH = os.path.join(DATA_DIR, 'nightly_dump.json')
+SENTIMENT_UPDATE_PATH = os.path.join(DATA_DIR, 'sentiment_update.json')
+MARKET_INDICES_PATH = os.path.join(DATA_DIR, 'market_indices.json')
 
-# Config
-MONGODB_URI = os.getenv("MONGODB_URI", "")
+# --- Helper functions for JSON I/O (copied from batch_runner.py) ---
+def load_json_data(file_path, default_value={}):
+    if not os.path.exists(DATA_DIR):
+        # In a web app context, this directory should exist if batch_runner ran
+        print(f"WARNING: Data directory {DATA_DIR} not found.")
+        return default_value
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                print(f"WARNING: JSONDecodeError in {file_path}. Returning default.")
+                return default_value
+    return default_value
 
-# Global state
-_mongodb_collection = None
-_models_loading = False
+# Config (MONGODB_URI removed)
+
+# Global state (MongoDB removed)
+_models_loading = False # Still relevant for background tasks if any
 
 def get_dashboard_mode():
+    # This logic was previously based on current time; now it's fixed to NIGHT for stability
     return "NIGHT"
 
-def load_engines_task():
-    global _mongodb_collection, _models_loading
-    if _models_loading: return
-    _models_loading = True
+# MongoDB connection code removed (load_engines_task, get_mongodb_collection removed)
+# The MongoDB connection is now handled by directly loading JSON files.
+
+@app.route('/diag')
+def diag():
+    # Diagnostic route adapted for JSON files
+    nightly_exists = os.path.exists(NIGHTLY_DUMP_PATH)
+    sentiment_exists = os.path.exists(SENTIMENT_UPDATE_PATH)
+    indices_exists = os.path.exists(MARKET_INDICES_PATH)
     
-    print("--- [Background] Connecting to MongoDB... ---")
-    if MONGODB_URI:
-        try:
-            # We only need the MongoDB connection. NO ML MODELS.
-            client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
-            db = client.stocksense
-            _mongodb_collection = db.stocksense_results
-            print("--- [Background] MongoDB Connected Successfully. ---")
-        except Exception as e:
-            print(f"--- [Background] MongoDB Connection Failed: {e} ---")
-            _mongodb_collection = None
-    else:
-        print("--- [Background] WARNING: MONGODB_URI not set. ---")
-            
-    _models_loading = False
+    nightly_data = load_json_data(NIGHTLY_DUMP_PATH)
+    sentiment_data = load_json_data(SENTIMENT_UPDATE_PATH)
+    market_indices_data = load_json_data(MARKET_INDICES_PATH)
 
-# Start DB connection in background
-threading.Thread(target=load_engines_task, daemon=True).start()
-
-def get_mongodb_collection():
-    global _mongodb_collection
-    if _mongodb_collection is None:
-        # Fallback: Attempt immediate connection if background thread hasn't finished
-        if MONGODB_URI:
-            try:
-                client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=2000)
-                db = client.stocksense
-                _mongodb_collection = db.stocksense_results
-            except:
-                pass
-    return _mongodb_collection
+    return jsonify({
+        "data_dir_exists": os.path.exists(DATA_DIR),
+        "nightly_dump_file_exists": nightly_exists,
+        "sentiment_update_file_exists": sentiment_exists,
+        "market_indices_file_exists": indices_exists,
+        "nightly_dump_records": len(nightly_data) if isinstance(nightly_data, dict) else 0,
+        "sentiment_update_records": len(sentiment_data) if isinstance(sentiment_data, dict) else 0,
+        "market_indices_data": market_indices_data,
+        "mode": get_dashboard_mode()
+    })
 
 @app.route('/')
 def home():
     try:
-        import pandas as pd
-        mongo_col = get_mongodb_collection()
+        import pandas as pd # Used for stocks_df
         
         # 1. Load static stock list from CSV
         try:
             csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'nse_stocks.csv')
             stocks_df = pd.read_csv(csv_path)
             stock_list = stocks_df.sort_values(by='Symbol').to_dict('records')
-        except:
+        except Exception as e:
+            print(f"Error loading stock list CSV: {e}")
             stock_list = []
 
-        # 2. Get Market Context and Indices from MongoDB
+        # 2. Get Market Context and Indices from JSON files
         regime = {"regime": "NIGHT", "volatility": "Normal"}
         indices = {"NIFTY 50": {"value": "N/A", "change": 0}, "SENSEX": {"value": "N/A", "change": 0}}
-
-        if mongo_col is not None:
-            # Get latest Market Indices
-            latest_indices = mongo_col.find_one({"type": "market_indices"}, sort=[("timestamp", -1)])
-            if latest_indices:
-                indices = latest_indices['data']
-
-            # Get latest RELIANCE dump for regime
-            latest_ref = mongo_col.find_one({"symbol": "RELIANCE.NS", "type": "nightly_dump"}, sort=[("timestamp", -1)])
-            if latest_ref:
-                macro_data = latest_ref['data'].get('macro_data', {})
-                regime = macro_data.get('REGIME', regime)
+        
+        market_indices_data = load_json_data(MARKET_INDICES_PATH)
+        if market_indices_data:
+            indices = market_indices_data
+        
+        # Get latest RELIANCE dump for regime (from nightly_dump.json)
+        nightly_dump_data = load_json_data(NIGHTLY_DUMP_PATH)
+        reliance_dump = nightly_dump_data.get("RELIANCE.NS", {})
+        if reliance_dump:
+            macro_data = reliance_dump.get('data', {}).get('macro_data', {})
+            regime = macro_data.get('REGIME', regime)
         
         return render_template('home.html', 
             indices=indices, 
@@ -113,35 +110,31 @@ def home():
         )
     except Exception as e:
         print(f"Home error: {e}")
-        return render_template('error.html', message="System error or Database connecting...")
+        traceback.print_exc() # Print full traceback for debugging
+        return render_template('error.html', message="System error or Data not available. Please try again.")
 
 @app.route('/stock/<symbol>')
 def stock_detail(symbol):
     try:
-        import numpy as np
+        import numpy as np # Used for signal computation
         if not symbol.endswith(".NS"): symbol += ".NS"
-        mongo_col = get_mongodb_collection()
         
-        if mongo_col is None:
-            return render_template('error.html', message="Connecting to database... Please refresh.")
+        nightly_dump_data = load_json_data(NIGHTLY_DUMP_PATH)
+        sentiment_update_data = load_json_data(SENTIMENT_UPDATE_PATH)
 
-        # STRICT DB ONLY: Pull from nightly_dump
-        latest_data = mongo_col.find_one({"symbol": symbol, "type": "nightly_dump"}, sort=[("timestamp", -1)])
+        # STRICT DB ONLY: Pull from nightly_dump.json
+        latest_data_entry = nightly_dump_data.get(symbol)
         
-        if latest_data:
-            nightly = latest_data['data']
+        if latest_data_entry:
+            nightly = latest_data_entry['data']
             
-            # Check for fresher sentiment update (from 3hr updater)
-            sentiment_update = mongo_col.find_one(
-                {"symbol": symbol, "type": "sentiment_update"},
-                sort=[("timestamp", -1)]
-            )
+            # Check for fresher sentiment update (from sentiment_update.json)
+            fresher_sentiment_entry = sentiment_update_data.get(symbol)
             
-            if sentiment_update and sentiment_update['timestamp'] > latest_data['timestamp']:
+            sent_source = nightly # Default to nightly sentiment
+            if fresher_sentiment_entry and fresher_sentiment_entry['timestamp'] > latest_data_entry['timestamp']:
                 print(f"Using fresher sentiment for {symbol}")
-                sent_source = sentiment_update['data']
-            else:
-                sent_source = nightly
+                sent_source = fresher_sentiment_entry['data']
             
             news_items = sent_source.get('raw_data_news', [])
             social_items = sent_source.get('raw_data_social', [])
@@ -168,7 +161,7 @@ def stock_detail(symbol):
                 chart_data=nightly.get('chart_data', {"labels":[], "prices":[]}), mode='DB-ONLY (Stable)'
             )
         else:
-            return render_template('error.html', message=f"No data found for {symbol} in Database.")
+            return render_template('error.html', message=f"No data found for {symbol}. Data files might be missing or empty.")
             
     except Exception as e:
         traceback.print_exc()
@@ -176,16 +169,16 @@ def stock_detail(symbol):
 
 @app.route('/api/chart/<symbol>')
 def api_chart(symbol):
-    """STRICT DB ONLY: Pull chart data from MongoDB."""
+    """STRICT JSON ONLY: Pull chart data from nightly_dump.json."""
     try:
         if not symbol.endswith(".NS"): symbol += ".NS"
-        mongo_col = get_mongodb_collection()
-        if mongo_col:
-            doc = mongo_col.find_one({"symbol": symbol, "type": "nightly_dump"}, sort=[("timestamp", -1)])
-            if doc:
-                return jsonify(doc['data'].get('chart_data', {"labels":[], "prices":[]}))
-    except:
-        pass
+        nightly_dump_data = load_json_data(NIGHTLY_DUMP_PATH)
+        doc = nightly_dump_data.get(symbol)
+        if doc:
+            return jsonify(doc['data'].get('chart_data', {"labels":[], "prices":[]}))
+    except Exception as e:
+        print(f"API Chart error: {e}")
+        traceback.print_exc()
     return jsonify({"labels":[], "prices":[]})
 
 @app.route('/stock_search')
