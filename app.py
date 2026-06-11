@@ -148,23 +148,11 @@ def stock_detail(symbol):
             corp_items = sent_source.get('raw_data_corporate', [])
             sent_metadata = sent_source.get('sentiment_metadata', {})
             
-            # Simplified Signal computation (No heavy ML libraries loaded)
-            pred_data = nightly.get('pred_data', {})
-            lgbm_change = pred_data.get('price_change_pct', 0) if isinstance(pred_data, dict) else 0
-            score = np.clip(lgbm_change / 5.0, -1, 1)
-            
-            verdict = "HOLD"
-            if score > 0.2: verdict = "BUY"
-            elif score < -0.2: verdict = "SELL"
-            
-            signal = {
-                'verdict': verdict, 'score': round(float(score), 2), 
-                'method': 'DB Cached Prediction', 'sent_mode': 'Full',
-                'breakdown': {
-                    'price': round(float(score), 2), 'sentiment': round(float(sent_metadata.get('total_score', 0)), 2),
-                    'institutional': 0.0, 'conviction': 0.0, 'sector': 0.0
-                }
-            }
+            # Pull pre-computed signal from the dump (Restores ML Intelligence)
+            signal = nightly.get('signal', {
+                'verdict': 'HOLD', 'score': 0.0, 'method': 'Legacy Fallback', 
+                'breakdown': {'price': 0, 'sentiment': 0, 'institutional': 0, 'sector': 0}
+            })
             
             unified_feed = []
             for n in news_items: unified_feed.append({'title': n['title'], 'link': n.get('link', '#'), 'date': n['date'], 'source': n['source'], 'type': 'News'})
