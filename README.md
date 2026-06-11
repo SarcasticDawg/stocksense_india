@@ -6,10 +6,8 @@ This project was developed as an open-source initiative to provide the community
 
 ## 🚀 Features
 
-*   **Automated Intelligence Pipeline:** Runs nightly via GitHub Actions to fetch data, train ML models, and save predictions to MongoDB.
-*   **Dual-Mode Architecture:**
-    *   **NIGHT MODE:** Lightning-fast loads using pre-computed data from MongoDB.
-    *   **LIVE MODE:** Real-time data scraping and on-the-fly ML predictions during market hours.
+*   **Automated Intelligence Pipeline:** Runs nightly via GitHub Actions to fetch data, train ML models, and save predictions to JSON files in the repository.
+*   **Dual-Mode Architecture (Simplified for Render):** The web app exclusively uses pre-computed data from JSON files for lightning-fast loads.
 *   **Market-Adaptive Meta-Model:** Automatically adjusts the weighting of AI, Sentiment, and Institutional signals based on recent historical accuracy.
 *   **Forward-Looking Sentiment Engine:** Distinguishes between "reporting" (past facts) and "signal" (future outlooks) across news, corporate filings, and social media.
 *   **Institutional Tracking:** Monitors FII/DII net flows and stock-specific Put/Call Ratios (PCR).
@@ -25,7 +23,7 @@ This project was developed as an open-source initiative to provide the community
     *   NiftyInvest (PCR & Delivery %)
     *   Screener.in (Corporate Announcements)
     *   RSS Feeds (Economic Times, Moneycontrol, Business Standard)
-4.  **Database:** MongoDB Atlas (NoSQL Document Store).
+4.  **Data Storage:** JSON Files (within `data/` directory in the repository).
 5.  **Deployment:** Render (Web Server) & GitHub Actions (Serverless Task Scheduler).
 
 ## 🛠️ Setup & Installation (For Developers)
@@ -42,10 +40,12 @@ pip install -r requirements.txt
 ```
 
 ### 3. Environment Variables
-Create a `.env` file in the root directory and add your MongoDB connection string:
+Create a `.env` file in the root directory and add any necessary environment variables (e.g., API keys).
 ```bash
-MONGODB_URI="mongodb+srv://<user>:<password>@cluster0...mongodb.net/?retryWrites=true&w=majority"
+# Example for a hypothetical API Key
+# MY_API_KEY="your_api_key_here"
 ```
+You no longer need to configure MONGODB_URI, as data is now stored in JSON files.
 
 ### 4. Run Locally
 ```bash
@@ -56,7 +56,7 @@ The app will be available at `http://localhost:8080`.
 ## ⚙️ Automated Pipeline Setup
 This repository contains a GitHub Actions workflow (`.github/workflows/stocksense_pipeline.yml`) that automates the data processing.
 
-1.  Add `MONGODB_URI` to your GitHub Repository Secrets.
+1.  No `MONGODB_URI` setup is required. All processed data is stored as JSON files directly in the repository.
 2.  The scheduler will automatically run:
     *   **19:00 IST:** `batch_runner.py` (Full data fetch, ML retraining, and prediction save)
 

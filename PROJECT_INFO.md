@@ -135,7 +135,7 @@ The `app.py` orchestrator dynamically switches modes based on **IST (Asia/Kolkat
 ### C. Infrastructure & Scalability
 - **Database (MongoDB Atlas)**: Used as the "System Memory" to store nightly dumps (`nightly_dump`).
 - **Orchestration (GitHub Actions)**: Uses `.github/workflows/stocksense_pipeline.yml` to trigger runners using serverless compute. 
-- **Security**: Database credentials and API keys are managed via **GitHub Repository Secrets** (`MONGODB_URI`).
+
 - **Self-Healing Loop**: The pipeline automatically detects missing data and uses fallback weights if certain endpoints (like Sensibull or NiftyInvest) are temporarily unavailable.
 
 ---
