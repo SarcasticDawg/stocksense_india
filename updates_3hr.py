@@ -1,7 +1,7 @@
 import os
 import sys
 import pandas as pd
-from pymongo import MongoClient
+import json # New import for JSON handling
 from datetime import datetime
 import pytz
 
@@ -12,11 +12,30 @@ import data_engine
 import sentiment
 import scraper
 
-# MongoDB Setup
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
-client = MongoClient(MONGODB_URI)
-db = client.stocksense
-collection = db.stocksense_results
+# --- JSON File Paths ---
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+NIGHTLY_DUMP_PATH = os.path.join(DATA_DIR, 'nightly_dump.json') # To read existing stock data
+SENTIMENT_UPDATE_PATH = os.path.join(DATA_DIR, 'sentiment_update.json')
+
+# --- Helper functions for JSON I/O (copied from batch_runner.py) ---
+def load_json_data(file_path, default_value={}):
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR)
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return default_value
+    return default_value
+
+def save_json_data(file_path, data):
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR)
+    with open(file_path, 'w') as f:
+        json.dump(data, f, indent=4)
+
+# MongoDB Setup (Removed)
 
 def run_3hr_update():
     IST = pytz.timezone('Asia/Kolkata')
@@ -33,6 +52,9 @@ def run_3hr_update():
         return
 
     sent_analyzer = sentiment.SentimentAnalyzer()
+    
+    # Load existing sentiment data
+    current_sentiment_data = load_json_data(SENTIMENT_UPDATE_PATH)
 
     for sym in symbols:
         symbol = f"{sym}.NS"
@@ -59,11 +81,10 @@ def run_3hr_update():
                     'total': len(news_items) + len(social_items) + len(corp_items)
                 }
             }
-
-            update_doc = {
-                "symbol": symbol,
+            
+            # Save to SENTIMENT_UPDATE_PATH (latest sentiment data)
+            current_sentiment_data[symbol] = {
                 "timestamp": now_ist.isoformat(),
-                "type": "sentiment_update",
                 "data": {
                     "raw_data_news": news_items,
                     "raw_data_social": social_items,
@@ -71,11 +92,12 @@ def run_3hr_update():
                     "sentiment_metadata": sentiment_metadata
                 }
             }
-            
-            collection.insert_one(update_doc)
 
         except Exception as e:
             print(f"Error refreshing {symbol}: {e}")
+
+    # Save the updated sentiment data after processing all symbols
+    save_json_data(SENTIMENT_UPDATE_PATH, current_sentiment_data)
 
     print("--- [3-Hour Updater] Completed ---")
 
