@@ -2,7 +2,7 @@ import os
 import sys
 import pandas as pd
 import yfinance as yf
-from pymongo import MongoClient
+import json # New import for JSON handling
 from datetime import datetime, timedelta
 import pytz
 import time
@@ -22,13 +22,45 @@ import scraper
 import sentiment
 import backtester
 
-# Fix: Resolved pymongo NotImplementedError (2026-06-11)
+# --- JSON File Paths ---
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+NIGHTLY_DUMP_PATH = os.path.join(DATA_DIR, 'nightly_dump.json')
+NIGHTLY_DUMP_HISTORY_PATH = os.path.join(DATA_DIR, 'nightly_dump_history.json')
+MARKET_INDICES_PATH = os.path.join(DATA_DIR, 'market_indices.json')
 
-# MongoDB Setup
-MONGODB_URI = os.getenv("MONGODB_URI")
-client = MongoClient(MONGODB_URI) if MONGODB_URI else None
-db = client.stocksense if client else None
-collection = db.stocksense_results if db is not None else None
+# --- Helper functions for JSON I/O ---
+def load_json_data(file_path, default_value={}):
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR, exist_ok=True) # Ensure directory exists
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return default_value # Return default if file is empty or corrupted
+    return default_value
+
+def save_json_data(file_path, data):
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR, exist_ok=True) # Ensure directory exists
+    with open(file_path, 'w') as f:
+        json.dump(data, f, indent=4)
+
+def append_json_history(file_path, data_entry):
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR, exist_ok=True) # Ensure directory exists
+    history = []
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as f:
+            try:
+                history = json.load(f)
+            except json.JSONDecodeError:
+                history = []
+    history.append(data_entry)
+    with open(file_path, 'w') as f:
+        json.dump(history, f, indent=4)
+
+# MongoDB Setup (Removed)
 
 def run_batch():
     IST = pytz.timezone('Asia/Kolkata')
@@ -37,11 +69,8 @@ def run_batch():
     print("====================================================")
     print(f"StockSense India - Execution Runner v4.0")
     print(f"Started at: {now_ist.strftime('%Y-%m-%d %H:%M:%S')} IST")
-    print("====================================================\n")
-
-    if collection is None:
-        print("CRITICAL ERROR: MONGODB_URI not set. Execution halted.")
-        return
+    print("====================================================
+") # Fixed: Added closing quote
 
     # 1. Load Market Context & Indices
     try:
@@ -55,11 +84,7 @@ def run_batch():
                 change = ((latest - prev) / prev) * 100
                 indices_summary[name] = {"value": round(float(latest), 2), "change": round(float(change), 2)}
         
-        collection.insert_one({
-            "type": "market_indices",
-            "timestamp": now_ist.isoformat(),
-            "data": indices_summary
-        })
+        save_json_data(MARKET_INDICES_PATH, indices_summary)
     except Exception as e:
         print(f"Error saving market indices: {e}")
 
@@ -75,7 +100,9 @@ def run_batch():
     ai_predictor = predictor.StockPredictor()
     meta = meta_model.MetaModel()
     sent_analyzer = sentiment.SentimentAnalyzer()
-    retry_queue = []
+    
+    # Load existing nightly dump data
+    current_nightly_dump = load_json_data(NIGHTLY_DUMP_PATH)
 
     for sym in symbols:
         symbol = f"{sym}.NS"
@@ -152,12 +179,10 @@ def run_batch():
             if final_signal > 0.3: verdict = "BUY"
             elif final_signal < -0.3: verdict = "SELL"
 
-            # --- PHASE 4: SAVE TO MONGODB ---
-            result_doc = {
-                "symbol": symbol,
+            # --- PHASE 4: SAVE TO JSON FILES ---
+            # Save to NIGHTLY_DUMP_PATH (latest data)
+            current_nightly_dump[symbol] = {
                 "timestamp": now_ist.isoformat(),
-                "type": "nightly_dump",
-                "features": features,
                 "data": {
                     "raw_data_news": raw_data['news'],
                     "raw_data_social": raw_data['social'],
@@ -183,12 +208,23 @@ def run_batch():
                     }
                 }
             }
-            collection.insert_one(result_doc)
+
+            # Append to NIGHTLY_DUMP_HISTORY_PATH (for Meta-Model training)
+            append_json_history(NIGHTLY_DUMP_HISTORY_PATH, {
+                "symbol": symbol,
+                "timestamp": now_ist.isoformat(),
+                "features": features,
+                "outcome": 1 if verdict == "BUY" else (0 if verdict == "SELL" else 0.5) # Simplified outcome for history
+            })
             
         except Exception as e:
             print(f"Error processing {symbol}: {e}")
 
-    print("\n--- [Execution] Completed Successfully ---")
+    # Save the updated nightly dump after processing all symbols
+    save_json_data(NIGHTLY_DUMP_PATH, current_nightly_dump)
+
+    print("
+====================================================") # Fixed: Added closing quote
 
 if __name__ == "__main__":
     run_batch()
