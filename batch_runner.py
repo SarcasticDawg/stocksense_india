@@ -66,10 +66,12 @@ def run_batch():
     IST = pytz.timezone('Asia/Kolkata')
     now_ist = datetime.now(IST)
     
-    print("====================================================\n")
+    print("====================================================
+")
     print(f"StockSense India - Execution Runner v4.0")
     print(f"Started at: {now_ist.strftime('%Y-%m-%d %H:%M:%S')} IST")
-    print("====================================================\n") # Fixed: Added closing quote
+    print("====================================================
+")
 
     # 1. Load Market Context & Indices
     try:
@@ -223,7 +225,8 @@ def run_batch():
     save_json_data(NIGHTLY_DUMP_PATH, current_nightly_dump)
 
     print("
-====================================================") # Fixed: Added closing quote
+====================================================
+")
 
 if __name__ == "__main__":
     run_batch()
