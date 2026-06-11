@@ -65,7 +65,7 @@ def run_batch_training():
 
     # 2. RETRAIN META-MODEL (THE BRAIN)
     print("
---- [Phase 2] Retraining Meta-Model from JSON history ---")
+--[Phase 2] Retraining Meta-Model from JSON history ---")
     meta = meta_model.MetaModel()
     
     # Load historical features from JSON file
@@ -76,11 +76,12 @@ def run_batch_training():
         features_list = []
         outcomes_list = []
         
-        # Filter for entries from 2 days ago (similar to original MongoDB logic)
-        # This part might need further refinement based on how many historical days we store
+        # Filter for entries from the last 30 days (more robust for retraining)
+        cutoff_date_str = (now_ist - timedelta(days=30)).strftime('%Y-%m-%d')
+        
         for entry in historical_entries:
             entry_date_str = entry['timestamp'].split('T')[0]
-            if entry_date_str == (now_ist - timedelta(days=2)).strftime('%Y-%m-%d'):
+            if entry_date_str >= cutoff_date_str:
                  if 'features' in entry and 'outcome' in entry:
                     features_list.append(entry['features'])
                     outcomes_list.append(entry['outcome'])
