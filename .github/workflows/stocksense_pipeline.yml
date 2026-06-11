@@ -6,12 +6,15 @@ on:
     - cron: '30 13 * * 1-5'
     # Every 3 hours on weekdays
     - cron: '0 */3 * * 1-5'
+  push:
+    branches:
+      - master
   workflow_dispatch:
 
 jobs:
   run-batch:
-    # Only run on 7:00 PM IST schedule OR when triggered manually
-    if: github.event.schedule == '30 13 * * 1-5' || github.event_name == 'workflow_dispatch'
+    # Only run on 7:00 PM IST schedule OR on pushes to master OR when triggered manually
+    if: github.event.schedule == '30 13 * * 1-5' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
