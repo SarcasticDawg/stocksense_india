@@ -23,7 +23,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Run Batch Runner
+      - name: Run Model Training
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        run: python batch_train.py
+      - name: Run Prediction Pipeline
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
         run: python batch_runner.py
