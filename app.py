@@ -295,6 +295,7 @@ def home():
 
 @app.route('/stock/<symbol>')
 def stock_detail(symbol):
+    print(f"--- [Dashboard] Accessing detail for {symbol} ---")
     try:
         if not symbol.endswith(".NS"): symbol += ".NS"
         
@@ -302,9 +303,11 @@ def stock_detail(symbol):
         print(f"--- [Dashboard] Mode: {mode} ---")
         
         pred_engine, sent_engine, meta_engine = get_models()
+        print(f"--- [Dashboard] Engines retrieved ---")
 
-        # 1. ALWAYS try to fetch from MongoDB first (Primary Source for Render stability)
+        # 1. ALWAYS try to fetch from MongoDB first
         mongo_col = get_mongodb_collection()
+        print(f"--- [Dashboard] Mongo collection: {'Connected' if mongo_col else 'None'} ---")
         latest_data = None
         sentiment_data = None
         
