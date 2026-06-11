@@ -148,7 +148,7 @@ def stock_detail(symbol):
             # Pull pre-computed signal from the dump (Restores ML Intelligence)
             signal = nightly.get('signal', {
                 'verdict': 'HOLD', 'score': 0.0, 'method': 'Legacy Fallback', 
-                'breakdown': {'price': 0, 'sentiment': 0, 'institutional': 0, 'sector': 0}
+                'breakdown': {'price': 0, 'sentiment': 0, 'institutional': 0, 'sector': 0, 'conviction': 0}
             })
             
             unified_feed = []

@@ -178,6 +178,11 @@ def run_batch():
 
             regime_val = 1 if macro_data.get('REGIME', {}).get('regime') == 'BULL' else (-1 if macro_data.get('REGIME', {}).get('regime') == 'BEAR' else 0)
 
+            conv_score = 0.0
+            if isinstance(conv_data, dict):
+                conv_val = conv_data.get('latest_pct', 30)
+                conv_score = np.clip((conv_val - 40) / 20.0, -1, 1)
+
             features = {
                 'ai_price': float(ai_score), 'sentiment': float(total_sent),
                 'inst_flow': float(inst_flow_score), 'pcr': float(pcr_score),
@@ -214,7 +219,8 @@ def run_batch():
                             "price": round(float(ai_score), 2),
                             "sentiment": round(float(total_sent), 2),
                             "institutional": round(float(inst_flow_score), 2),
-                            "sector": round(float(sector_rank_score), 2)
+                            "sector": round(float(sector_rank_score), 2),
+                            "conviction": round(float(conv_score), 2)
                         }
                     }
                 }
