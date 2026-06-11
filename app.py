@@ -57,6 +57,15 @@ threading.Thread(target=load_engines_task, daemon=True).start()
 
 def get_mongodb_collection():
     global _mongodb_collection
+    if _mongodb_collection is None:
+        # Fallback: Attempt immediate connection if background thread hasn't finished
+        if MONGODB_URI:
+            try:
+                client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=2000)
+                db = client.stocksense
+                _mongodb_collection = db.stocksense_results
+            except:
+                pass
     return _mongodb_collection
 
 @app.route('/')
