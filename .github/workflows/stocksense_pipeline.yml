@@ -33,7 +33,13 @@ jobs:
       - name: Run Prediction Pipeline
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
-        run: python batch_runner.py
+        run: |
+          echo "--- Diagnostic: Current Git Commit ---"
+          git rev-parse HEAD
+          echo "--- Diagnostic: batch_runner.py Content ---"
+          cat batch_runner.py
+          echo "--- End Diagnostic ---"
+          python batch_runner.py
       - name: Commit updated models
         run: |
           git config user.email "actions@github.com"
