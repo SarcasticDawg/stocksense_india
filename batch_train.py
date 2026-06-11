@@ -37,12 +37,10 @@ def load_json_data(file_path, default_value={}):
 def run_batch_training():
     IST = pytz.timezone('Asia/Kolkata')
     now_ist = datetime.now(IST)
-    print("====================================================
-")
+    print("====================================================")
     print(f"StockSense India - AI Training Pipeline v4.0")
     print(f"Started at: {now_ist.strftime('%Y-%m-%d %H:%M:%S')} IST")
-    print("====================================================
-")
+    print("====================================================")
     # 1. RETRAIN INDIVIDUAL STOCK MODELS (LGBM/XGB)
     try:
         csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'nse_stocks.csv')
@@ -66,9 +64,8 @@ def run_batch_training():
         time.sleep(1) # Safety delay
 
     # 2. RETRAIN META-MODEL (THE BRAIN)
-    print("
---- [Phase 2] Retraining Meta-Model from JSON history ---
-") # Corrected string literal
+    print("      --- [Phase 2] Retraining Meta-Model from JSON history ---")  
+# Corrected string literal
     meta = meta_model.MetaModel()
     
     # Load historical features from JSON file
@@ -97,12 +94,9 @@ def run_batch_training():
     else:
         print("Notice: No historical data found in JSON for Meta-Model training.")
 
-    print("
-====================================================
-")
+    print("====================================================")
     print(f"Training Pipeline Complete at: {datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S')} IST")
-    print("====================================================
-")
+    print("====================================================")
 
 if __name__ == "__main__":
     run_batch_training()
