@@ -88,14 +88,17 @@ def home():
         except:
             stock_list = []
 
-        # 2. Get Market Context from MongoDB (Proxy through RELIANCE dump)
+        # 2. Get Market Context and Indices from MongoDB
         regime = {"regime": "NIGHT", "volatility": "Normal"}
-        indices = {
-            "NIFTY 50": {"value": "Market Cached", "change": 0},
-            "SENSEX": {"value": "Market Cached", "change": 0}
-        }
+        indices = {"NIFTY 50": {"value": "N/A", "change": 0}, "SENSEX": {"value": "N/A", "change": 0}}
 
         if mongo_col is not None:
+            # Get latest Market Indices
+            latest_indices = mongo_col.find_one({"type": "market_indices"}, sort=[("timestamp", -1)])
+            if latest_indices:
+                indices = latest_indices['data']
+
+            # Get latest RELIANCE dump for regime
             latest_ref = mongo_col.find_one({"symbol": "RELIANCE.NS", "type": "nightly_dump"}, sort=[("timestamp", -1)])
             if latest_ref:
                 macro_data = latest_ref['data'].get('macro_data', {})

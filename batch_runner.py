@@ -80,6 +80,23 @@ def run_batch():
 
     # 2. Fetch All Data for Nifty 50
     try:
+        # Save Global Market Indices first
+        print("--- [Batch Runner] Saving Global Market Indices... ---")
+        indices_raw = data_engine.get_market_indices()
+        indices_summary = {}
+        for name, df in indices_raw.items():
+            if df is not None and not df.empty:
+                latest = df['Close'].iloc[-1]
+                prev = df['Close'].iloc[0]
+                change = ((latest - prev) / prev) * 100
+                indices_summary[name] = {"value": round(float(latest), 2), "change": round(float(change), 2)}
+        
+        collection.insert_one({
+            "type": "market_indices",
+            "timestamp": now_ist.isoformat(),
+            "data": indices_summary
+        })
+
         csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'nse_stocks.csv')
         stocks_df = pd.read_csv(csv_path)
         symbols = stocks_df['Symbol'].tolist()[:50] # Nifty 50
