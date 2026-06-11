@@ -31,6 +31,13 @@ jobs:
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
         run: python batch_runner.py
+      - name: Commit updated models
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add models/
+          git commit -m "🤖 AI: Update trained models" || echo "No model changes to commit"
+          git push
 
   run-3hr:
     # Only run on the 3-hour schedule
