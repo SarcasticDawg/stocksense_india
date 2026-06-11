@@ -46,22 +46,9 @@ _training_lock = threading.Lock()
 
 def get_dashboard_mode():
     """
-    Detects mode based on IST time.
-    LIVE: 9:15 AM to 7:00 PM IST, Weekdays
-    NIGHT: 7:00 PM to 9:15 AM IST, Weekdays + Weekends
+    ALWAYS returns NIGHT to force stable Cached mode on Render.
+    This prevents the site from hanging due to scraper blocks.
     """
-    IST = pytz.timezone('Asia/Kolkata')
-    now = datetime.now(IST)
-    weekday = now.weekday() # 0 is Monday, 6 is Sunday
-    current_time = now.time()
-    
-    start_live = datetime.strptime("09:15", "%H:%M").time()
-    end_live = datetime.strptime("19:00", "%H:%M").time()
-    
-    if 0 <= weekday <= 4: # Weekday
-        if start_live <= current_time <= end_live:
-            return "LIVE"
-    
     return "NIGHT"
 
 def load_engines_task():
