@@ -26,7 +26,7 @@ import backtester
 MONGODB_URI = os.getenv("MONGODB_URI")
 client = MongoClient(MONGODB_URI) if MONGODB_URI else None
 db = client.stocksense if client else None
-collection = db.stocksense_results if db else None
+collection = db.stocksense_results if db is not None else None
 
 def run_batch():
     IST = pytz.timezone('Asia/Kolkata')
