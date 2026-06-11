@@ -19,18 +19,13 @@ load_dotenv()
 # Add engines to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'engines'))
 
-import data_engine
-import predictor
-import sentiment
-import sector
-import macro
-import fno
-import market_context
-import meta_model
-import backtester
-import conviction
+# Lazy imports for engines are used inside routes to save memory
 
 app = Flask(__name__)
+
+@app.route('/health')
+def health():
+    return "OK", 200
 
 # Config
 USE_LEGACY_WEIGHTS = os.environ.get('USE_LEGACY_WEIGHTS', 'false').lower() == 'true'
@@ -61,6 +56,11 @@ def load_engines_task():
     # We allow multiple calls but only one active run
     if _models_loading: return
     _models_loading = True
+    
+    # Lazy imports inside the task to save startup memory
+    import sentiment
+    import meta_model
+    import predictor
     
     print("--- [Background] Initializing Market-Adaptive Ensemble & DB... ---")
     
@@ -257,6 +257,7 @@ def get_mongodb_collection():
 @app.route('/')
 def home():
     try:
+        import market_context
         indices = data_engine.get_market_indices()
         regime = market_context.get_market_regime()
         breadth = market_context.get_market_breadth()
@@ -284,6 +285,8 @@ def home():
 def stock_detail(symbol):
     print(f"--- [Dashboard] Accessing detail for {symbol} ---")
     try:
+        import macro, market_context, sector, fno, conviction, backtester, predictor
+
         if not symbol.endswith(".NS"): symbol += ".NS"
         
         mode = get_dashboard_mode()
