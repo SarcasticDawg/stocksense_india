@@ -87,17 +87,21 @@ def home():
             stock_list = []
 
         # 2. Get Market Context and Indices from JSON files
-        regime = {"regime": "NIGHT", "volatility": "Normal"}
+        regime = {"regime": "Analyzing...", "volatility": "Normal"}
         indices = {"NIFTY 50": {"value": "N/A", "change": 0}, "SENSEX": {"value": "N/A", "change": 0}}
         
         market_indices_data = load_json_data(MARKET_INDICES_PATH)
         if market_indices_data:
-            indices = market_indices_data
+            # Create a case-insensitive map for the ticker
+            indices = {}
+            for k, v in market_indices_data.items():
+                indices[k.upper()] = v
         
         # Get latest RELIANCE dump for regime (from nightly_dump.json)
         nightly_dump_data = load_json_data(NIGHTLY_DUMP_PATH)
         reliance_dump = nightly_dump_data.get("RELIANCE.NS", {})
         if reliance_dump:
+            # The regime is stored inside macro_data in the JSON
             macro_data = reliance_dump.get('data', {}).get('macro_data', {})
             regime = macro_data.get('REGIME', regime)
         
