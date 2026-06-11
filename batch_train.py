@@ -2,7 +2,7 @@ import os
 import sys
 import pandas as pd
 import yfinance as yf
-from pymongo import MongoClient
+import json # New import for JSON handling
 from datetime import datetime, timedelta
 import pytz
 import time
@@ -13,6 +13,24 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'engines'))
 import predictor
 import meta_model
 
+# --- JSON File Paths ---
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+NIGHTLY_DUMP_HISTORY_PATH = os.path.join(DATA_DIR, 'nightly_dump_history.json')
+
+# --- Helper functions for JSON I/O (copied from batch_runner.py) ---
+def load_json_data(file_path, default_value={}):
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR, exist_ok=True) # Ensure directory exists
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return default_value
+    return default_value
+
+# MongoDB Setup (Removed)
+
 def run_batch_training():
     IST = pytz.timezone('Asia/Kolkata')
     now_ist = datetime.now(IST)
@@ -20,16 +38,8 @@ def run_batch_training():
     print("====================================================")
     print(f"StockSense India - AI Training Pipeline v4.0")
     print(f"Started at: {now_ist.strftime('%Y-%m-%d %H:%M:%S')} IST")
-    print("====================================================\n")
-
-    # MongoDB Setup for Meta-Model
-    MONGODB_URI = os.getenv("MONGODB_URI")
-    client = None
-    collection = None
-    if MONGODB_URI:
-        client = MongoClient(MONGODB_URI)
-        db = client.stocksense
-        collection = db.stocksense_results
+    print("====================================================
+")
 
     # 1. RETRAIN INDIVIDUAL STOCK MODELS (LGBM/XGB)
     try:
@@ -54,48 +64,37 @@ def run_batch_training():
         time.sleep(1) # Safety delay
 
     # 2. RETRAIN META-MODEL (THE BRAIN)
-    if collection is not None:
-        print("\n--- [Phase 2] Retraining Meta-Model from MongoDB history ---")
-        meta = meta_model.MetaModel()
+    print("
+--- [Phase 2] Retraining Meta-Model from JSON history ---")
+    meta = meta_model.MetaModel()
+    
+    # Load historical features from JSON file
+    historical_entries = load_json_data(NIGHTLY_DUMP_HISTORY_PATH, default_value=[])
+
+    if historical_entries:
+        print(f"Found {len(historical_entries)} historical records. Preparing for Meta-Model training...")
+        features_list = []
+        outcomes_list = []
         
-        # Look back 2 days to compare old predictions with today's actual close
-        lookback_date = (now_ist - timedelta(days=2)).strftime('%Y-%m-%d')
-        last_dumps = list(collection.find({
-            "timestamp": {"$regex": f"^{lookback_date}"},
-            "type": "nightly_dump"
-        }))
-
-        if last_dumps:
-            print(f"Found {len(last_dumps)} historical records. Backfilling outcomes...")
-            features_list = []
-            outcomes_list = []
-            
-            for dump in last_dumps:
-                symbol = dump['symbol']
-                try:
-                    stock = yf.Ticker(symbol)
-                    hist = stock.history(period="1d")
-                    if not hist.empty:
-                        actual_close = hist['Close'].iloc[-1]
-                        prev_close = dump['data']['pred_data'].get('current_price', 0)
-                        
-                        if prev_close > 0:
-                            outcome = 1 if actual_close > prev_close else 0
-                            if 'features' in dump:
-                                features_list.append(dump['features'])
-                                outcomes_list.append(outcome)
-                except Exception as e:
-                    print(f"Error backfilling outcome for {symbol}: {e}")
-            
-            if len(features_list) > 10:
-                meta.train(pd.DataFrame(features_list), pd.Series(outcomes_list))
-                print("--- SUCCESS: Meta-Model weights optimized. ---")
-            else:
-                print("Notice: Not enough historical data to retrain Meta-Model yet.")
+        # Filter for entries from 2 days ago (similar to original MongoDB logic)
+        # This part might need further refinement based on how many historical days we store
+        for entry in historical_entries:
+            entry_date_str = entry['timestamp'].split('T')[0]
+            if entry_date_str == (now_ist - timedelta(days=2)).strftime('%Y-%m-%d'):
+                 if 'features' in entry and 'outcome' in entry:
+                    features_list.append(entry['features'])
+                    outcomes_list.append(entry['outcome'])
+        
+        if len(features_list) > 10:
+            meta.train(pd.DataFrame(features_list), pd.Series(outcomes_list))
+            print("--- SUCCESS: Meta-Model weights optimized. ---")
+        else:
+            print("Notice: Not enough historical data from the specified period for retraining Meta-Model yet.")
     else:
-        print("\n--- [Phase 2] Skipped: MONGODB_URI not set for Meta-Model training. ---")
+        print("Notice: No historical data found in JSON for Meta-Model training.")
 
-    print("\n====================================================")
+    print("
+====================================================")
     print(f"Training Pipeline Complete at: {datetime.now(IST).strftime('%H:%M:%S')} IST")
     print("====================================================")
 
