@@ -22,6 +22,8 @@ import scraper
 import sentiment
 import backtester
 
+# Fix: Resolved pymongo NotImplementedError (2026-06-11)
+
 # MongoDB Setup
 MONGODB_URI = os.getenv("MONGODB_URI")
 client = MongoClient(MONGODB_URI) if MONGODB_URI else None
