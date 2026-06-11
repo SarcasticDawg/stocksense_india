@@ -160,7 +160,7 @@ def stock_detail(symbol):
             for c in corp_items: unified_feed.append({'title': c['title'], 'link': c.get('link', '#'), 'date': c['date'], 'source': 'NSE/BSE', 'type': 'Announcement'})
 
             return render_template('stock.html', 
-                symbol=symbol, prediction=pred_data, 
+                symbol=symbol, prediction=nightly.get('pred_data', {}), 
                 pcr=nightly.get('pcr_data') or {"pcr": "N/A"}, conviction=nightly.get('conv_data') or {"latest_pct": 0},
                 macro=nightly.get('macro_data') or {}, sector=nightly.get('sector_data') or {"sector": "Unknown"},
                 signal=signal, backtest=nightly.get('bt_data') or {"win_rate": 0},
