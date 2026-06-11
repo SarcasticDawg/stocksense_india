@@ -39,15 +39,16 @@ def load_engines_task():
     print("--- [Background] Connecting to MongoDB... ---")
     if MONGODB_URI:
         try:
+            # We only need the MongoDB connection. NO ML MODELS.
             client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
             db = client.stocksense
             _mongodb_collection = db.stocksense_results
-            print("--- [Background] MongoDB Connected successfully. ---")
+            print("--- [Background] MongoDB Connected Successfully. ---")
         except Exception as e:
             print(f"--- [Background] MongoDB Connection Failed: {e} ---")
             _mongodb_collection = None
     else:
-        print("--- [Background] MONGODB_URI is empty. ---")
+        print("--- [Background] WARNING: MONGODB_URI not set. ---")
             
     _models_loading = False
 
@@ -64,7 +65,7 @@ def home():
         import pandas as pd
         mongo_col = get_mongodb_collection()
         
-        # 1. Load static stock list
+        # 1. Load static stock list from CSV
         try:
             csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'nse_stocks.csv')
             stocks_df = pd.read_csv(csv_path)
@@ -72,29 +73,29 @@ def home():
         except:
             stock_list = []
 
-        # 2. Try to get Market Context from the latest RELIANCE dump
+        # 2. Get Market Context from MongoDB (Proxy through RELIANCE dump)
         regime = {"regime": "NIGHT", "volatility": "Normal"}
-        breadth = {"pct_above_ma50": "50"}
-        indices = {"NIFTY 50": {"value": "Market Cached", "change": 0}}
+        indices = {
+            "NIFTY 50": {"value": "Market Cached", "change": 0},
+            "SENSEX": {"value": "Market Cached", "change": 0}
+        }
 
         if mongo_col is not None:
-            # Get latest RELIANCE dump to extract regime/macro data
             latest_ref = mongo_col.find_one({"symbol": "RELIANCE.NS", "type": "nightly_dump"}, sort=[("timestamp", -1)])
             if latest_ref:
                 macro_data = latest_ref['data'].get('macro_data', {})
                 regime = macro_data.get('REGIME', regime)
-                # Breadth isn't explicitly stored globally, but we can fake it or omit
         
         return render_template('home.html', 
             indices=indices, 
             stock_list=stock_list, 
             regime=regime, 
-            breadth=None, # Breadth often causes yfinance blocks
+            breadth=None, 
             app_name="StockIntel"
         )
     except Exception as e:
         print(f"Home error: {e}")
-        return render_template('error.html', message="Site is warming up. Please refresh.")
+        return render_template('error.html', message="System error or Database connecting...")
 
 @app.route('/stock/<symbol>')
 def stock_detail(symbol):
@@ -106,17 +107,30 @@ def stock_detail(symbol):
         if mongo_col is None:
             return render_template('error.html', message="Connecting to database... Please refresh.")
 
-        # Prioritize nightly_dump
+        # STRICT DB ONLY: Pull from nightly_dump
         latest_data = mongo_col.find_one({"symbol": symbol, "type": "nightly_dump"}, sort=[("timestamp", -1)])
         
         if latest_data:
             nightly = latest_data['data']
-            news_items = nightly.get('raw_data_news', [])
-            social_items = nightly.get('raw_data_social', [])
-            corp_items = nightly.get('raw_data_corporate', [])
-            sent_metadata = nightly.get('sentiment_metadata', {})
             
-            # Simplified Signal Logic (No heavy ML engines)
+            # Check for fresher sentiment update (from 3hr updater)
+            sentiment_update = mongo_col.find_one(
+                {"symbol": symbol, "type": "sentiment_update"},
+                sort=[("timestamp", -1)]
+            )
+            
+            if sentiment_update and sentiment_update['timestamp'] > latest_data['timestamp']:
+                print(f"Using fresher sentiment for {symbol}")
+                sent_source = sentiment_update['data']
+            else:
+                sent_source = nightly
+            
+            news_items = sent_source.get('raw_data_news', [])
+            social_items = sent_source.get('raw_data_social', [])
+            corp_items = sent_source.get('raw_data_corporate', [])
+            sent_metadata = sent_source.get('sentiment_metadata', {})
+            
+            # Simplified Signal computation (No heavy ML libraries loaded)
             pred_data = nightly.get('pred_data', {})
             lgbm_change = pred_data.get('price_change_pct', 0) if isinstance(pred_data, dict) else 0
             score = np.clip(lgbm_change / 5.0, -1, 1)
@@ -127,7 +141,7 @@ def stock_detail(symbol):
             
             signal = {
                 'verdict': verdict, 'score': round(float(score), 2), 
-                'method': 'Cached Strategy', 'sent_mode': 'Full',
+                'method': 'DB Cached Prediction', 'sent_mode': 'Full',
                 'breakdown': {
                     'price': round(float(score), 2), 'sentiment': round(float(sent_metadata.get('total_score', 0)), 2),
                     'institutional': 0.0, 'conviction': 0.0, 'sector': 0.0
@@ -140,12 +154,12 @@ def stock_detail(symbol):
             for c in corp_items: unified_feed.append({'title': c['title'], 'link': c.get('link', '#'), 'date': c['date'], 'source': 'NSE/BSE', 'type': 'Announcement'})
 
             return render_template('stock.html', 
-                symbol=symbol, prediction=nightly.get('pred_data') or {}, 
+                symbol=symbol, prediction=pred_data, 
                 pcr=nightly.get('pcr_data') or {"pcr": "N/A"}, conviction=nightly.get('conv_data') or {"latest_pct": 0},
                 macro=nightly.get('macro_data') or {}, sector=nightly.get('sector_data') or {"sector": "Unknown"},
                 signal=signal, backtest=nightly.get('bt_data') or {"win_rate": 0},
                 unified_feed=unified_feed, sent_data={'total': sent_metadata.get('total_score', 0), 'mentions': sent_metadata.get('mentions', {})},
-                chart_data=nightly.get('chart_data', {"labels":[], "prices":[]}), mode='NIGHT (Cached)'
+                chart_data=nightly.get('chart_data', {"labels":[], "prices":[]}), mode='DB-ONLY (Stable)'
             )
         else:
             return render_template('error.html', message=f"No data found for {symbol} in Database.")
@@ -153,6 +167,20 @@ def stock_detail(symbol):
     except Exception as e:
         traceback.print_exc()
         return render_template('error.html', message=f"Internal Error: {e}")
+
+@app.route('/api/chart/<symbol>')
+def api_chart(symbol):
+    """STRICT DB ONLY: Pull chart data from MongoDB."""
+    try:
+        if not symbol.endswith(".NS"): symbol += ".NS"
+        mongo_col = get_mongodb_collection()
+        if mongo_col:
+            doc = mongo_col.find_one({"symbol": symbol, "type": "nightly_dump"}, sort=[("timestamp", -1)])
+            if doc:
+                return jsonify(doc['data'].get('chart_data', {"labels":[], "prices":[]}))
+    except:
+        pass
+    return jsonify({"labels":[], "prices":[]})
 
 @app.route('/stock_search')
 def stock_search():
