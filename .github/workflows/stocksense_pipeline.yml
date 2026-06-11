@@ -27,12 +27,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Run Model Training
-        env:
-          MONGODB_URI: ${{ secrets.MONGODB_URI }}
         run: python batch_train.py
       - name: Run Prediction Pipeline
-        env:
-          MONGODB_URI: ${{ secrets.MONGODB_URI }}
         run: |
           echo "--- Diagnostic: Current Git Commit ---"
           git rev-parse HEAD
@@ -40,12 +36,12 @@ jobs:
           cat batch_runner.py
           echo "--- End Diagnostic ---"
           python batch_runner.py
-      - name: Commit updated models
+      - name: Commit updated models and data
         run: |
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
-          git add models/
-          git commit -m "🤖 AI: Update trained models" || echo "No model changes to commit"
+          git add models/ data/
+          git commit -m "🤖 AI: Nightly data and model update" || echo "No changes"
           git push
 
   run-3hr:
@@ -63,6 +59,4 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Run 3-Hour Updater
-        env:
-          MONGODB_URI: ${{ secrets.MONGODB_URI }}
         run: python updates_3hr.py
