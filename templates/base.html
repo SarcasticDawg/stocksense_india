@@ -23,6 +23,9 @@
 
     <footer>
         <p>&copy; 2026 StockSense India. For educational purposes only. Not financial advice.</p>
+        {% if last_updated %}
+        <p style="font-size: 0.8em; color: #888; margin-top: 5px;">Data as of: {{ last_updated }}</p>
+        {% endif %}
     </footer>
 </body>
 </html>

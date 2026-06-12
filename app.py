@@ -47,6 +47,20 @@ def get_dashboard_mode():
     # This logic was previously based on current time; now it's fixed to NIGHT for stability
     return "NIGHT"
 
+def get_last_updated():
+    try:
+        nightly_data = load_json_data(NIGHTLY_DUMP_PATH)
+        if nightly_data:
+            # Get timestamp from the first available stock
+            first_stock = next(iter(nightly_data.values()))
+            if 'timestamp' in first_stock:
+                # Format from ISO 8601 to readable string
+                dt = datetime.fromisoformat(first_stock['timestamp'])
+                return dt.strftime('%d-%b-%Y %H:%M IST')
+    except Exception as e:
+        print(f"Error parsing last_updated: {e}")
+    return "Unknown"
+
 # MongoDB connection code removed (load_engines_task, get_mongodb_collection removed)
 # The MongoDB connection is now handled by directly loading JSON files.
 
@@ -110,7 +124,8 @@ def home():
             stock_list=stock_list, 
             regime=regime, 
             breadth=None, 
-            app_name="StockIntel"
+            app_name="StockIntel",
+            last_updated=get_last_updated()
         )
     except Exception as e:
         print(f"Home error: {e}")
@@ -148,8 +163,18 @@ def stock_detail(symbol):
             # Pull pre-computed signal from the dump (Restores ML Intelligence)
             signal = nightly.get('signal', {
                 'verdict': 'HOLD', 'score': 0.0, 'method': 'Legacy Fallback', 
-                'breakdown': {'price': 0, 'sentiment': 0, 'institutional': 0, 'sector': 0, 'conviction': 0}
+                'breakdown': {}
             })
+            
+            # Guarantee all breakdown keys exist to prevent template errors
+            breakdown = signal.get('breakdown', {})
+            signal['breakdown'] = {
+                'price': breakdown.get('price', 0.0),
+                'sentiment': breakdown.get('sentiment', 0.0),
+                'institutional': breakdown.get('institutional', 0.0),
+                'sector': breakdown.get('sector', 0.0),
+                'conviction': breakdown.get('conviction', 0.0)
+            }
             
             unified_feed = []
             for n in news_items: unified_feed.append({'title': n['title'], 'link': n.get('link', '#'), 'date': n['date'], 'source': n['source'], 'type': 'News'})
@@ -170,7 +195,8 @@ def stock_detail(symbol):
                 macro=nightly.get('macro_data') or {}, sector=nightly.get('sector_data') or {"sector": "Unknown"},
                 signal=signal, backtest=nightly.get('bt_data') or {"win_rate": 0},
                 unified_feed=unified_feed, sent_data=sent_display_data,
-                chart_data=nightly.get('chart_data', {"labels":[], "prices":[]}), mode='DB-ONLY (Stable)'
+                chart_data=nightly.get('chart_data', {"labels":[], "prices":[]}), mode='DB-ONLY (Stable)',
+                last_updated=get_last_updated()
             )
         else:
             return render_template('error.html', message=f"No data found for {symbol}. Data files might be missing or empty.")
