@@ -109,7 +109,7 @@
     <!-- Market Sentiment Card -->
     <div class="card">
         <h3>Market Sentiment</h3>
-        {% if sent_data and sent_data.mentions.total > 0 or sent_data.mentions.news > 0 or sent_data.mentions.social > 0 or sent_data.mentions.corp > 0 %}
+        {% if sent_data and (sent_data.mentions.get('total', 0) > 0 or sent_data.mentions.get('news', 0) > 0 or sent_data.mentions.get('social', 0) > 0 or sent_data.mentions.get('corp', 0) > 0) %}
         <div class="sentiment-bar-container">
             <p>Institutional ({{ sent_data.mentions.get('corp', 0) }}): <span class="{% if sent_data.get('corporate', 0) >= 0 %}pos{% else %}neg{% endif %}">{{ (sent_data.get('corporate', 0) * 100)|round(1) }}%</span></p>
             <div class="sentiment-bar">
