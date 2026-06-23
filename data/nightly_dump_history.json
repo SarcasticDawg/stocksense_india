@@ -7590,5 +7590,655 @@
             "regime": -1.0
         },
         "outcome": 0.5
+    },
+    {
+        "symbol": "ADANIENT.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.018800011444091796,
+            "sentiment": 0.23973643143941137,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.56,
+            "sector": 1.0,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "ADANIPORTS.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.15640000858306885,
+            "sentiment": 0.1691859150975228,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.6000000000000001,
+            "sector": 0.3333333333333335,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "APOLLOHOSP.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.08079999427795412,
+            "sentiment": 0.16476029359087557,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.1200000000000001,
+            "sector": 0.3333333333333335,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "ASIANPAINT.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.07759999618530275,
+            "sentiment": 0.13830493468199606,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -1.0,
+            "sector": 0.3333333333333335,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "AXISBANK.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.39799999976158146,
+            "sentiment": 0.17590919891555234,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.3400000000000001,
+            "sector": 0.3333333333333335,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "BAJAJ-AUTO.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.3120000057220459,
+            "sentiment": 0.3879022396955636,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.88,
+            "sector": -0.6666666666666667,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "BAJFINANCE.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.2323999990463257,
+            "sentiment": 0.4003019402839103,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.26,
+            "sector": 1.0,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "BAJAJFINSV.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.07519999046325683,
+            "sentiment": 0.2634505942902419,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.7,
+            "sector": 0.5,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "BPCL.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.04000000953674317,
+            "sentiment": 0.12793778399332553,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.6000000000000001,
+            "sector": 1.0,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "BHARTIARTL.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.18759999046325687,
+            "sentiment": 0.22763512668271652,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.6400000000000001,
+            "sector": 0.6666666666666667,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "BRITANNIA.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.026000019073486334,
+            "sentiment": 0.16699556565632245,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.5800000000000001,
+            "sector": -0.19999999999999996,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "CIPLA.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.43919999952316285,
+            "sentiment": 0.2992808246508159,
+            "inst_flow": 0.27922800000000003,
+            "pcr": 0.07999999999999985,
+            "sector": 0.5,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "COALINDIA.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.3104000038146973,
+            "sentiment": 0.1718513613752273,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.43999999999999995,
+            "sector": 0.19999999999999996,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "DIVISLAB.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.09879999046325685,
+            "sentiment": 0.1986874554596107,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.21999999999999997,
+            "sector": 0.0,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "DRREDDY.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.1360000114440918,
+            "sentiment": 0.15112629783838316,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.92,
+            "sector": -0.5,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "EICHERMOT.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.07,
+            "sentiment": 0.11652889104817023,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.16000000000000014,
+            "sector": 0.6666666666666667,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "GRASIM.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.05519999427795405,
+            "sentiment": 0.1402067967512993,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.40000000000000013,
+            "sector": -0.33333333333333326,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "HCLTECH.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.3371999828338623,
+            "sentiment": 0.39742652884068763,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.6799999999999999,
+            "sector": 0.6666666666666667,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "HDFCBANK.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.28040000381469726,
+            "sentiment": 0.30080850063292774,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.52,
+            "sector": -0.33333333333333326,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "HDFCLIFE.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.0787999942779541,
+            "sentiment": 0.1617510452918469,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.48,
+            "sector": 0.0,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "HEROMOTOCO.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.029599998092651375,
+            "sentiment": 0.2511418276131756,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.88,
+            "sector": 0.0,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "HINDALCO.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.23519998474121095,
+            "sentiment": 0.23494685558866463,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.9400000000000001,
+            "sector": -0.6000000000000001,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "HINDUNILVR.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.371999984741211,
+            "sentiment": 0.14304960235304787,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.9400000000000001,
+            "sector": 0.6000000000000001,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "ICICIBANK.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.05800001144409181,
+            "sentiment": 0.14191841639209193,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.040000000000000036,
+            "sector": 0.6666666666666667,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "ITC.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.08080001144409181,
+            "sentiment": 0.13236218191540677,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.8200000000000001,
+            "sector": 1.0,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "INDUSINDBK.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.17599999523162843,
+            "sentiment": 0.19479388085813332,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.43999999999999995,
+            "sector": -0.6666666666666667,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "INFY.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.6376000095367432,
+            "sentiment": 0.16412410661974186,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.76,
+            "sector": -0.33333333333333326,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "JSWSTEEL.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.24800000190734864,
+            "sentiment": 0.2584380127814507,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.56,
+            "sector": 0.6000000000000001,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "KOTAKBANK.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.007599986648559577,
+            "sentiment": 0.27250735987047614,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.26,
+            "sector": 0.0,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "LTM.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.3680000019073486,
+            "sentiment": 0.18153375778834158,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.6000000000000001,
+            "sector": 0.3333333333333335,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "LT.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.21680000095367433,
+            "sentiment": 0.24191281945577278,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.3800000000000001,
+            "sector": 1.0,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "M&M.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.35159999666213987,
+            "sentiment": 0.21473039865396476,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.7,
+            "sector": -0.33333333333333326,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "MARUTI.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.09520000858306886,
+            "sentiment": 0.13869695071547977,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.88,
+            "sector": 0.3333333333333335,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "NTPC.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.11239999809265139,
+            "sentiment": 0.19950016088146486,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -1.0,
+            "sector": -0.19999999999999996,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "NESTLEIND.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.22840000524520876,
+            "sentiment": 0.42513589676621144,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.3800000000000001,
+            "sector": 0.19999999999999996,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "ONGC.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.0355999942779541,
+            "sentiment": 0.23891818904949877,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -1.0,
+            "sector": -0.6000000000000001,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "POWERGRID.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.16999999523162843,
+            "sentiment": 0.4067868028147781,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.8200000000000001,
+            "sector": 0.6000000000000001,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "RELIANCE.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.11640000095367431,
+            "sentiment": 0.12405755182351791,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.8,
+            "sector": 0.19999999999999996,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "SBILIFE.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.2136000057220459,
+            "sentiment": 0.14706305306038892,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.56,
+            "sector": -0.5,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "SBIN.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.20880000953674316,
+            "sentiment": 0.2165053623885659,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.3400000000000001,
+            "sector": 1.0,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "SUNPHARMA.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.14440000524520874,
+            "sentiment": 0.352183295990665,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.72,
+            "sector": 1.0,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "TCS.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.36520000190734847,
+            "sentiment": 0.39809824168527497,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.8,
+            "sector": 0.0,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "TATACONSUM.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.14719999618530274,
+            "sentiment": 0.20843946320461712,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.88,
+            "sector": -0.6000000000000001,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "TMCV.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.3159999961853028,
+            "sentiment": 0.1581817460952499,
+            "inst_flow": 0.27922800000000003,
+            "pcr": 0.19999999999999996,
+            "sector": 1.0,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "TATASTEEL.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.002799980926513651,
+            "sentiment": 0.16990047742943243,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.8600000000000001,
+            "sector": -0.19999999999999996,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "TECHM.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.4436000038146972,
+            "sentiment": 0.21245090936116812,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.76,
+            "sector": 1.0,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "TITAN.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": -0.16320000762939454,
+            "sentiment": 0.17483892923404587,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.10000000000000009,
+            "sector": 1.0,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "UPL.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.1384000057220459,
+            "sentiment": 0.18115919756980983,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.8400000000000001,
+            "sector": -0.6666666666666667,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "ULTRACEMCO.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.20800001335144042,
+            "sentiment": 0.17910221796514394,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -0.78,
+            "sector": 0.0,
+            "regime": -1.0
+        },
+        "outcome": 0.5
+    },
+    {
+        "symbol": "WIPRO.NS",
+        "timestamp": "2026-06-24T05:09:46.970588+05:30",
+        "features": {
+            "ai_price": 0.6507999923706055,
+            "sentiment": 0.17486316232580892,
+            "inst_flow": 0.27922800000000003,
+            "pcr": -1.0,
+            "sector": -0.6666666666666667,
+            "regime": -1.0
+        },
+        "outcome": 0.5
     }
 ]
